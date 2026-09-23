@@ -59,15 +59,12 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .hero-copy h1 span { color: var(--text); }
 .hero-copy h1 em { color: var(--orange); font-weight: 400; transform: translateX(.38em); }
 .event-intro { margin: 0; color: var(--text-soft); font-size: clamp(14px, 1.5vw, 20px); line-height: 1.55; }
-.checkin-prompt { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: clamp(18px, 3vw, 38px); width: 100%; padding: clamp(22px, 3.2vh, 44px) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.checkin-prompt { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: clamp(18px, 3vw, 38px); width: 100%; padding: clamp(22px, 3.2vh, 44px) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .checkin-index { align-self: start; color: var(--text-faint); font-size: 12px; font-weight: 700; }
 .checkin-copy { display: flex; flex-direction: column; gap: 8px; }
 .checkin-copy small { color: var(--orange); font-size: clamp(11px, 1vw, 14px); font-weight: 700; letter-spacing: .2em; }
 .checkin-copy strong { color: var(--text); font-family: var(--serif); font-size: clamp(27px, min(4vw, 4vh), 49px); font-weight: 400; line-height: .96; letter-spacing: -.015em; }
-.round-arrow { display: grid; width: clamp(48px, 5.6vw, 68px); aspect-ratio: 1; place-items: center; color: var(--orange); border: 1px solid var(--orange); border-radius: 50%; animation: arrowDrift 1.6s ease-in-out infinite; }
-.round-arrow svg { width: 42%; height: 42%; }
-.home-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.home-footer > p { margin: 0; color: var(--text-faint); font-size: 10px; font-weight: 700; letter-spacing: .19em; }
+.home-footer { display: flex; width: min(100%, 790px); justify-self: center; align-items: center; justify-content: center; }
 .raffle-button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 58px; padding: 0 24px; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: 100px; font-size: clamp(13px, 1.15vw, 16px); font-weight: 600; transition: border-color .18s ease, color .18s ease, transform .18s ease; }
 .raffle-button svg { color: var(--orange); }
 .raffle-button:hover, .raffle-button:focus-visible { color: var(--orange); border-color: var(--orange); }
@@ -84,9 +81,9 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .attendance-screen { display: grid; grid-template-rows: minmax(270px, 34vh) minmax(0, 1fr); background: var(--ink); }
 .attendance-head { position: relative; padding: clamp(28px, 4.2vh, 72px) clamp(30px, 6vw, 82px) clamp(26px, 4vh, 66px); overflow: hidden; border-bottom: 1px solid var(--line); }
 .attendance-head::after { content: ''; position: absolute; right: 7%; bottom: -58%; width: 46%; aspect-ratio: 1; border: 1px solid rgba(255,90,31,.14); border-radius: 50%; }
-.text-back { position: absolute; z-index: 4; top: 48%; right: clamp(30px, 6vw, 82px); display: flex; align-items: center; gap: 8px; color: var(--text-soft); background: transparent; font-size: 14px; }
-.text-back:hover { color: var(--orange); }
-.text-back svg { width: 17px; }
+.header-back { position: relative; z-index: 4; display: inline-flex; align-items: center; justify-self: start; gap: 8px; padding: 0; color: var(--text-soft); background: transparent; font-size: 14px; }
+.header-back:hover { color: var(--orange); }
+.header-back svg { width: 17px; }
 .attendance-title { position: relative; z-index: 2; display: flex; align-items: end; justify-content: space-between; gap: 28px; margin-top: clamp(36px, 6vh, 105px); }
 .attendance-title h1 { margin: 12px 0 0; color: var(--text); font-family: var(--serif); font-size: clamp(54px, min(8.5vw, 9vh), 98px); font-weight: 400; line-height: .82; letter-spacing: -.035em; }
 .attendance-title h1 em { color: var(--orange); font-weight: 400; }
@@ -235,8 +232,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
   .event-intro { font-size: clamp(13px, 1.15vw, 17px); }
   .checkin-prompt { width: min(62%, 760px); padding: clamp(17px, 2.5vh, 28px) 0; }
   .checkin-copy strong { font-size: clamp(26px, 4vh, 38px); }
-  .home-footer { position: absolute; right: clamp(44px, 6vw, 94px); bottom: clamp(22px, 3.2vh, 38px); flex-direction: column-reverse; align-items: end; }
-  .home-footer > p { display: none; }
+  .home-footer { width: min(62%, 760px); justify-self: center; align-items: start; justify-content: flex-start; }
   .ambient--one { top: 2%; right: -9%; width: min(58vw, 740px); }
 
   .attendance-screen { grid-template-columns: minmax(290px, 34%) minmax(0, 1fr); grid-template-rows: 1fr; }
@@ -244,7 +240,6 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
   .attendance-head::after { right: -42%; bottom: -7%; width: 110%; }
   .attendance-head .totem-header { grid-template-columns: 1fr auto; }
   .attendance-head .step-indicator { display: none; }
-  .text-back { top: 112px; right: auto; left: clamp(32px, 4vw, 58px); }
   .attendance-title { align-items: start; height: calc(100% - 42px); flex-direction: column; justify-content: center; margin-top: 0; }
   .attendance-title h1 { font-size: clamp(58px, 7.2vw, 96px); }
   .presence-count { position: absolute; bottom: 0; left: 0; }
@@ -291,7 +286,6 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
   .checkin-prompt { grid-template-columns: 1fr auto; }
   .checkin-index { display: none; }
   .checkin-copy strong { font-size: 28px; }
-  .home-footer > p { display: none; }
   .raffle-button { width: 100%; }
   .totem-header { grid-template-columns: 1fr auto; }
   .totem-header .step-indicator { display: none; }
@@ -316,7 +310,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 /* Centered home composition */
 .totem-home .hero-copy { width: min(100%, 900px); justify-self: center; align-items: center; text-align: center; }
 .totem-home .hero-copy h1 em { transform: none; }
-.totem-home .checkin-prompt { width: min(100%, 790px); justify-self: center; }
+.totem-home .checkin-prompt, .totem-home .home-footer { width: min(100%, 790px); justify-self: center; }
 .totem-home .event-intro { text-align: center; }
 
 /* Hidden administration entry */
@@ -398,7 +392,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 
 @media (min-aspect-ratio: 1 / 1) and (min-width: 760px) {
   .totem-home .hero-copy { width: min(100%, 820px); padding-top: 2vh; }
-  .totem-home .checkin-prompt { width: min(62%, 760px); }
+  .totem-home .checkin-prompt, .totem-home .home-footer { width: min(62%, 760px); }
   .admin-modal { max-height: 90dvh; }
   .keyboard-open .admin-modal { max-height: 54vh; }
   .virtual-keyboard { padding-right: 8vw; padding-left: 8vw; }

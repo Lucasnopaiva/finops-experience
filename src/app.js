@@ -119,12 +119,12 @@ function confirmedCount() {
   return Math.max(0, event.totalConfirmed + guestList.length - BASE_GUEST_COUNT);
 }
 
-function totemHeader(step, title) {
+function totemHeader(step, title, { backRoute = null } = {}) {
   const titleMarkup = title === 'Lista de presença'
     ? `<p class="admin-trigger" data-action="admin-trigger">${title}</p>`
     : `<p>${title}</p>`;
   return `<header class="totem-header">
-    <span class="event-wordmark"><i></i>FINOPS EXPERIENCE</span>
+    ${backRoute ? `<button class="header-back" data-route="${backRoute}">${icons.back} Início</button>` : '<span class="event-wordmark"><i></i>FINOPS EXPERIENCE</span>'}
     <div class="step-indicator"><span>${step}</span><span class="step-line"></span><span>03</span></div>
     ${titleMarkup}
   </header>`;
@@ -144,11 +144,9 @@ function renderTotemHome() {
     </section>
     <div class="checkin-prompt" aria-hidden="true">
       <span class="checkin-index">01</span>
-      <span class="checkin-copy"><small>CHECK-IN</small><strong>Toque em qualquer lugar<br/>para encontrar seu nome</strong></span>
-      <span class="round-arrow">${icons.arrow}</span>
+      <span class="checkin-copy"><small>CHECK-IN</small><strong>Toque em qualquer lugar<br/>para fazer o Check-in</strong></span>
     </div>
     <footer class="home-footer">
-      <p>TOQUE PARA CONTINUAR</p>
       <button class="raffle-button" data-action="open-raffle">${icons.trophy}<span>Realizar sorteio</span></button>
     </footer>
     ${state.raffleOpen ? raffleModal() : ''}
@@ -177,8 +175,7 @@ function renderAttendance() {
   hideKeyboard();
   root.innerHTML = `<main class="totem-screen attendance-screen">
     <div class="attendance-head">
-      ${totemHeader('02', 'Lista de presença')}
-      <button class="text-back" data-route="#/totem">${icons.back} Início</button>
+      ${totemHeader('02', 'Lista de presença', { backRoute: '#/totem' })}
       <div class="attendance-title">
         <div><p class="eyebrow eyebrow--dark">FAÇA SEU CHECK-IN</p><h1>Encontre<br/><em>seu nome.</em></h1></div>
         <div class="presence-count"><strong>${presentCount()}</strong><span>pessoas<br/>presentes</span></div>
