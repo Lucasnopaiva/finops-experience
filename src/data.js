@@ -1,0 +1,132 @@
+export const event = {
+  name: 'FinOps Experience',
+  edition: 'Fortaleza · 2026',
+  date: '24 de setembro',
+  venue: 'BS Design Corporate Towers',
+  totalConfirmed: 84,
+};
+
+export const companies = {
+  picpay: { name: 'PicPay', initials: 'PP', color: '#21c25e' },
+  caju: { name: 'Caju', initials: 'CA', color: '#ef5b30' },
+  stone: { name: 'Stone', initials: 'ST', color: '#00a868' },
+  totvs: { name: 'TOTVS', initials: 'TV', color: '#2773ff' },
+  omie: { name: 'Omie', initials: 'OM', color: '#2665f5' },
+  nibo: { name: 'Nibo', initials: 'NB', color: '#6936e8' },
+};
+
+export const participants = [
+  {
+    id: 'amanda-lima',
+    name: 'Amanda Lima',
+    role: 'Head de Finanças',
+    companyId: 'picpay',
+    photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+  {
+    id: 'bruno-martins',
+    name: 'Bruno Martins',
+    role: 'CFO',
+    companyId: 'caju',
+    photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+  {
+    id: 'camila-rocha',
+    name: 'Camila Rocha',
+    role: 'Diretora de Operações',
+    companyId: 'stone',
+    photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+  {
+    id: 'daniel-alves',
+    name: 'Daniel Alves',
+    role: 'Gerente de FP&A',
+    companyId: 'totvs',
+    photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: false,
+  },
+  {
+    id: 'eduarda-costa',
+    name: 'Eduarda Costa',
+    role: 'VP de Estratégia',
+    companyId: 'omie',
+    photo: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+  {
+    id: 'felipe-freitas',
+    name: 'Felipe Freitas',
+    role: 'Controller',
+    companyId: 'nibo',
+    photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+  {
+    id: 'gabriela-moura',
+    name: 'Gabriela Moura',
+    role: 'Head de Tesouraria',
+    companyId: 'picpay',
+    photo: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+  {
+    id: 'henrique-salles',
+    name: 'Henrique Salles',
+    role: 'Diretor Financeiro',
+    companyId: 'stone',
+    photo: 'https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: false,
+  },
+  {
+    id: 'isabela-melo',
+    name: 'Isabela Melo',
+    role: 'Especialista FinOps',
+    companyId: 'totvs',
+    photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+  {
+    id: 'joao-victor',
+    name: 'João Victor',
+    role: 'COO',
+    companyId: 'caju',
+    photo: 'https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+  {
+    id: 'larissa-macedo',
+    name: 'Larissa Macedo',
+    role: 'Gerente de Controladoria',
+    companyId: 'omie',
+    photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: false,
+  },
+  {
+    id: 'marcos-tavares',
+    name: 'Marcos Tavares',
+    role: 'Founder & CEO',
+    companyId: 'nibo',
+    photo: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=320&q=85',
+    linkedin: 'https://www.linkedin.com/',
+    present: true,
+  },
+];
+
+export const getParticipant = (id) => participants.find((participant) => participant.id === id);
+export const getCompany = (companyId) => companies[companyId];
+export const getCompanyPeople = (companyId, excludeId) =>
+  participants.filter((participant) => participant.companyId === companyId && participant.id !== excludeId);
