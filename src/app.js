@@ -22,13 +22,6 @@ const icons = {
   check: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>',
 };
 
-function brandMark(light = false) {
-  return `<div class="brand-mark ${light ? 'brand-mark--light' : ''}" aria-label="PICBRAND">
-    <span class="brand-symbol"><i></i><i></i><i></i></span>
-    <span>PICBRAND</span>
-  </div>`;
-}
-
 function navigate(route) {
   if (window.location.hash === route) render();
   else window.location.hash = route;
@@ -50,36 +43,34 @@ function personImage(person, className = '') {
 
 function totemHeader(step, title) {
   return `<header class="totem-header">
-    ${brandMark(true)}
+    <span class="event-wordmark"><i></i>FINOPS EXPERIENCE</span>
     <div class="step-indicator"><span>${step}</span><span class="step-line"></span><span>03</span></div>
     <p>${title}</p>
   </header>`;
 }
 
 function renderTotemHome() {
-  root.innerHTML = `<main class="totem-screen totem-home">
+  root.innerHTML = `<main class="totem-screen totem-home" data-action="start-checkin" role="button" tabindex="0" aria-label="Iniciar check-in">
     <div class="ambient ambient--one"></div><div class="ambient ambient--two"></div>
     <header class="home-topbar">
-      ${brandMark(true)}
+      <span class="event-wordmark"><i></i>FINOPS EXPERIENCE</span>
       <div class="edition-badge"><span></span>${event.edition}</div>
     </header>
 
     <section class="hero-copy" aria-labelledby="event-title">
-      <p class="eyebrow">PICBRAND APRESENTA</p>
+      <p class="eyebrow">${event.date} · ${event.venue}</p>
       <h1 id="event-title"><span>FinOps</span><em>Experience</em></h1>
-      <div class="event-meta">
-        <span>${event.date}</span><i></i><span>${event.venue}</span>
-      </div>
+      <p class="event-intro">Estratégia financeira, tecnologia<br/>e conexões em um só encontro.</p>
     </section>
 
-    <button class="checkin-card" data-action="start-checkin">
+    <div class="checkin-prompt" aria-hidden="true">
       <span class="checkin-index">01</span>
-      <span class="checkin-copy"><small>CHECK-IN</small><strong>Encontre seu nome<br/>e confirme sua presença</strong></span>
+      <span class="checkin-copy"><small>CHECK-IN</small><strong>Toque em qualquer lugar<br/>para encontrar seu nome</strong></span>
       <span class="round-arrow">${icons.arrow}</span>
-    </button>
+    </div>
 
     <footer class="home-footer">
-      <p>Experiências que transformam encontros<br/>em conexões que importam.</p>
+      <p>TOQUE PARA CONTINUAR</p>
       <button class="raffle-button" data-action="open-raffle">${icons.trophy}<span>Realizar sorteio</span></button>
     </footer>
     ${state.raffleOpen ? raffleModal() : ''}
@@ -89,7 +80,7 @@ function renderTotemHome() {
 function raffleModal() {
   const present = participants.filter((person) => person.present);
   const display = state.raffleWinner || present[0];
-  return `<div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="raffle-title">
+  return `<div class="modal-backdrop" data-action="noop" role="dialog" aria-modal="true" aria-labelledby="raffle-title">
     <section class="raffle-modal">
       <button class="icon-close" data-action="close-raffle" aria-label="Fechar sorteio">×</button>
       <span class="modal-kicker">SORTEIO · ${present.length} PARTICIPANTES</span>
@@ -147,10 +138,12 @@ function renderQr(id) {
   root.innerHTML = `<main class="totem-screen qr-screen">
     ${totemHeader('03', 'Conecte-se')}
     <section class="qr-content">
-      <div class="success-ring">${icons.check}</div>
-      <p class="eyebrow">PRESENÇA CONFIRMADA</p>
-      <h1>Olá, ${person.name.split(' ')[0]}.<br/><em>Que bom ter você aqui.</em></h1>
-      <p class="qr-intro">Aproxime a câmera do celular para conhecer os participantes e criar novas conexões.</p>
+      <div class="confirmation-copy" aria-live="polite">
+        <div class="success-ring"><span>${icons.check}</span></div>
+        <p class="eyebrow confirmation-label">PRESENÇA CONFIRMADA</p>
+        <h1>Olá, ${person.name.split(' ')[0]}.<br/><em>Que bom ter você aqui.</em></h1>
+        <p class="qr-intro">Aproxime a câmera do celular para conhecer os participantes e criar novas conexões.</p>
+      </div>
       <div class="qr-card">
         <canvas id="qr-canvas" aria-label="QR Code para acessar a área de networking"></canvas>
         <div><span></span><strong>ESCANEIE PARA CONECTAR</strong><span></span></div>
@@ -170,8 +163,8 @@ function renderQr(id) {
 
 function mobileHeader({ back = false } = {}) {
   return `<header class="mobile-header">
-    ${back ? `<button class="mobile-back" data-action="mobile-back" aria-label="Voltar">${icons.back}</button>` : brandMark(true)}
-    <span class="mobile-event">FINOPS<br/>EXPERIENCE</span>
+    ${back ? `<button class="mobile-back" data-action="mobile-back" aria-label="Voltar">${icons.back}</button>` : '<span class="event-dot" aria-hidden="true"></span>'}
+    <span class="mobile-event">FINOPS EXPERIENCE</span>
   </header>`;
 }
 
@@ -204,7 +197,7 @@ function renderNetworking() {
     <section id="network-grid" class="network-grid">
       ${filtered.length ? filtered.map(participantCard).join('') : `<div class="empty-state empty-state--mobile"><strong>Nenhuma conexão encontrada.</strong><span>Tente buscar por outro nome ou empresa.</span></div>`}
     </section>
-    <footer class="mobile-footer">Uma experiência <strong>PICBRAND</strong></footer>
+    <footer class="mobile-footer">Conexões que continuam depois do evento.</footer>
   </main>`;
 }
 
@@ -288,6 +281,14 @@ document.addEventListener('click', (eventTarget) => {
   if (personRow) return navigate(`#/totem/qrcode/${personRow.dataset.person}`);
   const profileCard = eventTarget.target.closest('[data-profile]');
   if (profileCard) return navigate(`#/networking/perfil/${profileCard.dataset.profile}`);
+});
+
+document.addEventListener('keydown', (keyEvent) => {
+  if (!keyEvent.target.matches('.totem-home')) return;
+  if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+    keyEvent.preventDefault();
+    navigate('#/totem/presenca');
+  }
 });
 
 document.addEventListener('input', (inputEvent) => {

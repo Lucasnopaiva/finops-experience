@@ -1,4 +1,4 @@
-# PICBRAND — FinOps Experience
+# FinOps Experience
 
 Aplicação web para o totem de check-in do evento e para a experiência mobile de networking acessada via QR Code.
 
