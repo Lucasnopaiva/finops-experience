@@ -16,10 +16,13 @@ const state = {
   adminOpen: false,
   adminAuthenticated: false,
   adminView: 'login',
+  adminSection: 'guests',
   adminError: '',
   adminPassword: '',
   adminEditingId: null,
   adminPhoto: '',
+  adminCompanyEditingId: null,
+  adminCompanyPhoto: '',
   adminTapCount: 0,
   adminLastTap: 0,
   confirmDialog: null,
@@ -36,8 +39,11 @@ const state = {
 };
 
 let guestList = loadGuests();
+let companyProfiles = Object.fromEntries(Object.entries(companies).map(([id, company]) => [id, { id, ...company, description: '', photo: '' }]));
 let keyboardTarget = null;
 let keyboardShift = false;
+let raffleTimer = null;
+let raffleFinishTimer = null;
 
 const icons = {
   arrow: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
@@ -93,6 +99,21 @@ async function syncGuests() {
   } catch { /* Os dados mockados permanecem disponíveis quando a rede falha. */ }
 }
 
+async function syncCompanies() {
+  try {
+    const response = await fetch('/api/companies', { cache: 'no-store' });
+    if (!response.ok) return;
+    const profiles = await response.json();
+    if (!Array.isArray(profiles)) return;
+    companyProfiles = Object.fromEntries(profiles.map((company) => [company.id, {
+      ...company,
+      initials: companies[company.id]?.initials || company.name.split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase(),
+      color: companies[company.id]?.color || '#ff5a1f',
+    }]));
+    render();
+  } catch { /* Os nomes iniciais continuam disponíveis se a rede falhar. */ }
+}
+
 function escapeHtml(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -144,11 +165,14 @@ function findPerson(id) {
 }
 
 function personCompany(person) {
+  if (person.companyId && companyProfiles[person.companyId]) return companyProfiles[person.companyId];
   if (Object.hasOwn(person, 'company')) {
     const name = person.company?.trim() || '-';
+    const profile = Object.values(companyProfiles).find((company) => company.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'));
+    if (profile) return profile;
     return { name, initials: name === '-' ? '—' : name.split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase(), color: '#ff5a1f' };
   }
-  return companies[person.companyId] || { name: '-', initials: '—', color: '#6e625b' };
+  return { name: '-', initials: '—', color: '#6e625b' };
 }
 
 function companyLogo(person, size = 'md') {
@@ -157,9 +181,10 @@ function companyLogo(person, size = 'md') {
 }
 
 function companyPeople(person) {
-  const companyName = personCompany(person).name.toLocaleLowerCase('pt-BR');
+  const profile = personCompany(person);
+  const companyName = profile.name.toLocaleLowerCase('pt-BR');
   if (companyName === '-') return [];
-  return guestList.filter((candidate) => candidate.id !== person.id && personCompany(candidate).name.toLocaleLowerCase('pt-BR') === companyName);
+  return guestList.filter((candidate) => candidate.id !== person.id && (profile.id && personCompany(candidate).id === profile.id || personCompany(candidate).name.toLocaleLowerCase('pt-BR') === companyName));
 }
 
 function personImage(person, className = '') {
@@ -216,8 +241,8 @@ function raffleModal() {
       <span class="modal-kicker">SORTEIO · ${eligible.length} ${eligible.length === 1 ? 'PRESENTE ELEGÍVEL' : 'PRESENTES ELEGÍVEIS'}</span>
       <h2 id="raffle-title">Quem leva<br/><em>essa experiência?</em></h2>
       ${eligible.length ? `${display || state.raffleRunning ? `<div class="raffle-stage ${state.raffleRunning ? 'is-running' : ''}">
-        <div class="winner-avatar">${personImage(display)}</div>
-        <div><small>${state.raffleWinner ? 'TEMOS UM VENCEDOR' : 'SORTEANDO ENTRE OS PRESENTES'}</small><strong id="raffle-name">${escapeHtml(display.name)}</strong><span>${escapeHtml(personCompany(display).name)}</span></div>
+        <div class="winner-avatar"><img id="raffle-avatar" src="${escapeHtml(display.photo)}" alt="Foto de ${escapeHtml(display.name)}" /></div>
+        <div><small>${state.raffleWinner ? 'TEMOS UM VENCEDOR' : 'SORTEANDO ENTRE OS PRESENTES'}</small><strong id="raffle-name">${escapeHtml(display.name)}</strong><span id="raffle-company">${escapeHtml(personCompany(display).name)}</span></div>
       </div>` : `<div class="raffle-stage raffle-stage--ready"><div class="raffle-ready-icon">${icons.trophy}</div><div><small>PRONTO PARA COMEÇAR</small><strong>Nenhum nome revelado</strong><span>Toque no botão abaixo para realizar o sorteio.</span></div></div>`}
       <button class="primary-button primary-button--orange" data-action="run-raffle" ${state.raffleRunning ? 'disabled' : ''}>${state.raffleRunning ? 'Sorteando…' : state.raffleWinner ? 'Sortear novamente' : 'Iniciar sorteio'} ${icons.arrow}</button>`
       : '<div class="empty-raffle">Nenhum convidado presente para o sorteio.</div>'}
@@ -290,13 +315,16 @@ function confirmationOverlay() {
 }
 
 function adminOverlay() {
+  if (state.adminView === 'choose') return adminChooser();
   if (!state.adminAuthenticated || state.adminView === 'login') return adminLogin();
   if (state.adminView === 'form') return adminGuestForm();
+  if (state.adminView === 'companies') return adminCompanyList();
+  if (state.adminView === 'company-form') return adminCompanyForm();
   return adminGuestList();
 }
 
 function adminShell(content, className = '') {
-  return `<div class="modal-backdrop admin-backdrop" data-action="noop" role="dialog" aria-modal="true" aria-label="Gerenciar convidados">
+  return `<div class="modal-backdrop admin-backdrop" data-action="noop" role="dialog" aria-modal="true" aria-label="Administração do evento">
     <section class="admin-modal ${className}">
       <button class="icon-close" data-action="close-admin" aria-label="Fechar administração">×</button>
       ${content}
@@ -304,11 +332,19 @@ function adminShell(content, className = '') {
   </div>`;
 }
 
+function adminChooser() {
+  return adminShell(`<div class="admin-choice-heading"><span class="modal-kicker">ADMINISTRAÇÃO</span><h2>O que deseja<br/><em>gerenciar?</em></h2></div>
+    <div class="admin-choice-grid">
+      <button data-action="choose-admin" data-section="companies"><span class="admin-choice-icon">${icons.edit}</span><strong>Empresas</strong><small>Nome, descrição e foto</small>${icons.arrow}</button>
+      <button data-action="choose-admin" data-section="guests"><span class="admin-choice-icon">${icons.plus}</span><strong>Convidados</strong><small>Adicionar, editar e remover</small>${icons.arrow}</button>
+    </div>`, 'admin-modal--choice');
+}
+
 function adminLogin() {
   return adminShell(`<div class="admin-login">
     <span class="admin-lock">${icons.lock}</span>
     <span class="modal-kicker">ACESSO RESTRITO</span>
-    <h2>Gerenciar<br/><em>convidados.</em></h2>
+    <h2>Gerenciar<br/><em>${state.adminSection === 'companies' ? 'empresas.' : 'convidados.'}</em></h2>
     <p>Digite a senha de operação do evento para continuar.</p>
     <form id="admin-login-form">
       <label>Senha<input id="admin-password" data-keyboard type="password" name="password" inputmode="none" autocomplete="off" placeholder="Digite a senha" /></label>
@@ -356,6 +392,34 @@ function adminGuestForm() {
       </div>
       ${state.adminError ? `<span class="form-error guest-form-error">${escapeHtml(state.adminError)}</span>` : ''}
       <button class="primary-button guest-save" type="submit">${person ? 'Salvar alterações' : 'Adicionar convidado'} ${icons.arrow}</button>
+    </form>`, 'admin-modal--form');
+}
+
+function adminCompanyList() {
+  const rows = Object.values(companyProfiles).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).map((company) => `<div class="admin-company-row">
+    ${company.photo ? `<img src="${escapeHtml(company.photo)}" alt="Foto da empresa ${escapeHtml(company.name)}" />` : `<span class="admin-company-initials">${escapeHtml(company.initials)}</span>`}
+    <div><strong>${escapeHtml(company.name)}</strong><span>${escapeHtml(company.description || 'Sem descrição cadastrada')}</span></div>
+    <button data-action="edit-company" data-id="${escapeHtml(company.id)}" aria-label="Editar ${escapeHtml(company.name)}">${icons.edit}</button>
+  </div>`).join('');
+  return adminShell(`<header class="admin-heading"><div><button class="admin-back" data-action="admin-choose">${icons.back} Voltar</button><span class="modal-kicker">ADMINISTRAÇÃO</span><h2>Empresas</h2><p>Edite os dados exibidos nos perfis dos participantes.</p></div></header>
+    ${state.adminError ? `<span class="form-error">${escapeHtml(state.adminError)}</span>` : ''}
+    <div class="admin-guest-list">${rows || '<div class="empty-state"><strong>Nenhuma empresa cadastrada.</strong></div>'}</div>`, 'admin-modal--list');
+}
+
+function adminCompanyForm() {
+  const company = companyProfiles[state.adminCompanyEditingId];
+  if (!company) return adminCompanyList();
+  const photo = state.adminCompanyPhoto || company.photo;
+  return adminShell(`<div class="admin-form-heading"><button class="admin-back" data-action="company-list">${icons.back} Voltar</button><span class="modal-kicker">EDITAR EMPRESA</span><h2>${escapeHtml(company.name)}</h2></div>
+    <form id="company-form" class="guest-form company-form">
+      <div class="guest-fields">
+        <label>Nome<input data-keyboard name="name" inputmode="none" autocomplete="off" maxlength="120" required placeholder="Nome da empresa" value="${escapeHtml(company.name)}" /></label>
+        <label>Descrição<textarea data-keyboard name="description" inputmode="none" maxlength="1000" placeholder="Conte um pouco sobre a empresa">${escapeHtml(company.description)}</textarea></label>
+      </div>
+      <div class="photo-field"><span>Foto da empresa</span><div class="photo-preview ${photo ? 'has-photo' : ''}">${photo ? `<img src="${escapeHtml(photo)}" alt="Prévia da empresa" />` : `<span>${icons.upload}<small>Nenhuma foto cadastrada</small></span>`}</div>
+        <label class="secondary-button photo-upload">${icons.upload} ${photo ? 'Trocar foto' : 'Escolher foto'}<input id="company-photo" type="file" accept="image/*" /></label></div>
+      <span class="form-error guest-form-error" id="company-form-error">${escapeHtml(state.adminError)}</span>
+      <button class="primary-button guest-save" type="submit">Salvar empresa ${icons.arrow}</button>
     </form>`, 'admin-modal--form');
 }
 
@@ -430,7 +494,7 @@ function renderProfile(id) {
     <section class="profile-hero">${mobileHeader({ back: true })}<div class="profile-photo">${personImage(person)}<span>${companyLogo(person, 'lg')}</span></div><div class="profile-heading"><span class="eyebrow">PERFIL DO PARTICIPANTE</span><h1>${escapeHtml(person.name)}</h1><p>${escapeHtml(person.role)}<br/><strong>${escapeHtml(company.name)}</strong></p></div></section>
     <section class="profile-body">
       ${linkedInUrl(person) ? `<a class="linkedin-button" href="${escapeHtml(linkedInUrl(person))}" target="_blank" rel="noopener noreferrer">${icons.linkedin}<span>Conectar no LinkedIn</span>${icons.arrow}</a>` : `<div class="linkedin-button linkedin-button--unavailable">${icons.linkedin}<span>LinkedIn não cadastrado</span></div>`}
-      <div class="company-block"><span class="section-kicker">EMPRESA</span><div class="company-feature">${companyLogo(person, 'xl')}<div><strong>${escapeHtml(company.name)}</strong><span>${company.name === '-' ? 'Não informada' : 'Empresa deste participante'}</span></div></div></div>
+      <div class="company-block"><span class="section-kicker">EMPRESA</span><div class="company-feature">${company.photo ? `<img class="company-feature-photo" src="${escapeHtml(company.photo)}" alt="Foto da empresa ${escapeHtml(company.name)}" />` : companyLogo(person, 'xl')}<div><strong>${escapeHtml(company.name)}</strong><span>${company.description ? escapeHtml(company.description) : company.name === '-' ? 'Não informada' : 'Empresa deste participante'}</span></div></div></div>
       ${company.name !== '-' ? `<div class="colleagues-block"><div class="section-title"><div><span class="section-kicker">MAIS CONEXÕES</span><h2>Também da ${escapeHtml(company.name)}</h2></div><strong>${colleagues.length}</strong></div><div class="colleague-list">${colleagues.length ? colleagues.map(participantCard).join('') : '<p class="solo-company">Você encontrou o único participante desta empresa por aqui.</p>'}</div></div>` : ''}
     </section>
     ${state.networkAdminOpen ? networkAdminOverlay() : ''}
@@ -547,6 +611,17 @@ async function deleteGuestOnServer(id) {
   if (!response.ok) throw new Error(result.error || 'Não foi possível remover o convidado.');
 }
 
+async function saveCompanyOnServer(company) {
+  const response = await fetch(`/api/admin/companies/${encodeURIComponent(company.id)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', 'x-admin-password': state.adminPassword },
+    body: JSON.stringify(company),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Não foi possível salvar a empresa.');
+  return result;
+}
+
 function render() {
   hideKeyboard();
   window.scrollTo(0, 0);
@@ -562,7 +637,7 @@ function render() {
 function openAdmin() {
   state.adminOpen = true;
   state.adminAuthenticated = false;
-  state.adminView = 'login';
+  state.adminView = 'choose';
   state.adminError = '';
   state.confirmDialog = null;
   renderAttendance();
@@ -594,17 +669,33 @@ function runRaffle() {
   state.raffleWinner = null;
   renderTotemHome();
   let ticks = 0;
-  const timer = window.setInterval(() => {
-    const element = document.querySelector('#raffle-name');
-    if (element) element.textContent = eligible[ticks % eligible.length].name;
+  raffleTimer = window.setInterval(() => {
+    if (!state.raffleOpen) return;
+    const person = eligible[ticks % eligible.length];
+    const name = document.querySelector('#raffle-name');
+    const avatar = document.querySelector('#raffle-avatar');
+    const company = document.querySelector('#raffle-company');
+    if (name) name.textContent = person.name;
+    if (avatar) { avatar.src = person.photo; avatar.alt = `Foto de ${person.name}`; }
+    if (company) company.textContent = personCompany(person).name;
     ticks += 1;
-  }, 90);
-  window.setTimeout(() => {
-    window.clearInterval(timer);
+  }, 110);
+  raffleFinishTimer = window.setTimeout(() => {
+    window.clearInterval(raffleTimer);
+    raffleTimer = null;
+    if (!state.raffleOpen) return;
     state.raffleWinner = eligible[Math.floor(Math.random() * eligible.length)];
     state.raffleRunning = false;
     renderTotemHome();
   }, 2400);
+}
+
+function stopRaffle() {
+  window.clearInterval(raffleTimer);
+  window.clearTimeout(raffleFinishTimer);
+  raffleTimer = null;
+  raffleFinishTimer = null;
+  state.raffleRunning = false;
 }
 
 function showKeyboard(input) {
@@ -706,7 +797,7 @@ document.addEventListener('click', (eventTarget) => {
   const openKeyboard = document.querySelector('#virtual-keyboard');
   if (openKeyboard && !eventTarget.target.closest('#virtual-keyboard') && eventTarget.target !== keyboardTarget) hideKeyboard();
 
-  const keyboardInput = eventTarget.target.closest('input[data-keyboard]');
+  const keyboardInput = eventTarget.target.closest('input[data-keyboard], textarea[data-keyboard]');
   if (keyboardInput) showKeyboard(keyboardInput);
 
   const keyboardButton = eventTarget.target.closest('[data-keyboard-key], [data-keyboard-command]');
@@ -720,7 +811,7 @@ document.addEventListener('click', (eventTarget) => {
     const action = actionButton.dataset.action;
     if (action === 'start-checkin') navigate('#/totem/presenca');
     if (action === 'open-raffle') { state.raffleOpen = true; state.raffleWinner = null; renderTotemHome(); }
-    if (action === 'close-raffle') { state.raffleOpen = false; state.raffleRunning = false; state.raffleWinner = null; renderTotemHome(); }
+    if (action === 'close-raffle') { stopRaffle(); state.raffleOpen = false; state.raffleWinner = null; renderTotemHome(); }
     if (action === 'run-raffle') runRaffle();
     if (action === 'mobile-back') navigate(networkListRoute());
     if (action === 'network-admin-trigger') handleNetworkAdminTrigger();
@@ -744,7 +835,22 @@ document.addEventListener('click', (eventTarget) => {
       }).catch((error) => { state.networkAdminError = error.message; renderNetworkCurrent(); });
     }
     if (action === 'admin-trigger') handleAdminTrigger();
+    if (action === 'admin-choose') { state.adminView = 'choose'; state.adminError = ''; renderAttendance(); }
+    if (action === 'choose-admin') {
+      state.adminSection = actionButton.dataset.section === 'companies' ? 'companies' : 'guests';
+      state.adminView = state.adminAuthenticated ? state.adminSection === 'companies' ? 'companies' : 'list' : 'login';
+      state.adminError = '';
+      renderAttendance();
+    }
     if (action === 'close-admin') { state.adminOpen = false; state.adminPassword = ''; state.confirmDialog = null; renderAttendance(); }
+    if (action === 'company-list') { state.adminView = 'companies'; state.adminError = ''; renderAttendance(); }
+    if (action === 'edit-company') {
+      state.adminCompanyEditingId = actionButton.dataset.id;
+      state.adminCompanyPhoto = companyProfiles[state.adminCompanyEditingId]?.photo || '';
+      state.adminView = 'company-form';
+      state.adminError = '';
+      renderAttendance();
+    }
     if (action === 'add-guest') openGuestForm();
     if (action === 'edit-guest') openGuestForm(actionButton.dataset.id);
     if (action === 'admin-list') { state.adminView = 'list'; state.adminError = ''; renderAttendance(); }
@@ -791,7 +897,7 @@ document.addEventListener('keydown', (keyEvent) => {
 });
 
 document.addEventListener('focusin', (focusEvent) => {
-  const input = focusEvent.target.closest('input[data-keyboard]');
+  const input = focusEvent.target.closest('input[data-keyboard], textarea[data-keyboard]');
   if (input) showKeyboard(input);
 });
 
@@ -809,14 +915,16 @@ document.addEventListener('input', (inputEvent) => {
 });
 
 document.addEventListener('change', async (changeEvent) => {
-  if (!changeEvent.target.matches('#guest-photo')) return;
+  if (!changeEvent.target.matches('#guest-photo, #company-photo')) return;
   const file = changeEvent.target.files?.[0];
   if (!file) return;
   try {
-    state.adminPhoto = await resizePhoto(file);
+    const photo = await resizePhoto(file);
+    if (changeEvent.target.id === 'company-photo') state.adminCompanyPhoto = photo;
+    else state.adminPhoto = photo;
     state.adminError = '';
     const preview = document.querySelector('.photo-preview');
-    if (preview) { preview.classList.add('has-photo'); preview.innerHTML = `<img id="guest-photo-preview" src="${state.adminPhoto}" alt="Prévia da foto" />`; }
+    if (preview) { preview.classList.add('has-photo'); preview.innerHTML = `<img src="${photo}" alt="Prévia da foto" />`; }
   } catch {
     state.adminError = 'Não foi possível ler essa imagem. Escolha outro arquivo.';
     renderAttendance();
@@ -862,11 +970,34 @@ document.addEventListener('submit', (submitEvent) => {
         if (!response.ok) throw new Error(response.status === 401 ? 'Senha incorreta. Tente novamente.' : 'Não foi possível validar a senha. Tente novamente.');
         state.adminAuthenticated = true;
         state.adminPassword = String(password);
-        state.adminView = 'list';
+        state.adminView = state.adminSection === 'companies' ? 'companies' : 'list';
         state.adminError = '';
         renderAttendance();
       })
       .catch((error) => { state.adminError = error.message; renderAttendance(); });
+    return;
+  }
+  if (submitEvent.target.matches('#company-form')) {
+    submitEvent.preventDefault();
+    const values = new FormData(submitEvent.target);
+    const name = String(values.get('name') || '').trim();
+    const description = String(values.get('description') || '').trim();
+    const id = state.adminCompanyEditingId;
+    const errorField = document.querySelector('#company-form-error');
+    if (!name) { if (errorField) errorField.textContent = 'Informe o nome da empresa.'; return; }
+    const previous = companyProfiles[id];
+    saveCompanyOnServer({ id, name, description, photo: state.adminCompanyPhoto || previous?.photo || '' })
+      .then((saved) => {
+        companyProfiles[id] = { ...previous, ...saved };
+        guestList = guestList.map((person) => person.companyId === id && Object.hasOwn(person, 'company') ? { ...person, company: saved.name } : person);
+        persistGuests();
+        state.adminCompanyPhoto = '';
+        state.adminCompanyEditingId = null;
+        state.adminError = '';
+        state.adminView = 'companies';
+        renderAttendance();
+      })
+      .catch((error) => { state.adminError = error.message; if (errorField) errorField.textContent = error.message; });
     return;
   }
   if (submitEvent.target.matches('#guest-form')) {
@@ -898,6 +1029,7 @@ document.addEventListener('submit', (submitEvent) => {
       state.adminPhoto = '';
       state.adminError = '';
       renderAttendance();
+      void syncCompanies();
     }).catch((error) => {
       state.adminError = error.message;
       const field = document.querySelector('.guest-form-error');
@@ -913,4 +1045,4 @@ document.addEventListener('submit', (submitEvent) => {
 
 window.addEventListener('hashchange', render);
 render();
-void (async () => { await syncGuests(); await syncLinkedInLinks(); })();
+void (async () => { await syncCompanies(); await syncGuests(); await syncLinkedInLinks(); })();

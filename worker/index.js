@@ -26,6 +26,25 @@ async function ensureGuests(env) {
   await env.DB.batch(statements);
 }
 
+async function ensureCompanies(env) {
+  const seeded = await env.DB.prepare('SELECT value FROM app_state WHERE key = ?').bind('companies_seeded').first();
+  if (seeded) return;
+  await ensureGuests(env);
+  const existing = await env.DB.prepare("SELECT DISTINCT company FROM guests WHERE company IS NOT NULL AND trim(company) != ''").all();
+  const profiles = Object.entries(SEED_COMPANIES).map(([id, company]) => ({ id, name: company.name }));
+  for (const row of existing.results || []) {
+    if (!profiles.some((company) => company.name.toLocaleLowerCase('pt-BR') === row.company.toLocaleLowerCase('pt-BR'))) {
+      profiles.push({ id: `custom-${crypto.randomUUID()}`, name: row.company });
+    }
+  }
+  const statements = profiles.map((company) => env.DB.prepare('INSERT OR IGNORE INTO company_profiles (id, name, description, photo) VALUES (?, ?, ?, ?)')
+    .bind(company.id, company.name, '', ''));
+  statements.push(env.DB.prepare('INSERT OR IGNORE INTO app_state (key, value) VALUES (?, ?)').bind('companies_seeded', '1'));
+  await env.DB.batch(statements);
+  await env.DB.batch(profiles.map((company) => env.DB.prepare('UPDATE guests SET company_id = ? WHERE company_id IS NULL AND lower(company) = lower(?)')
+    .bind(company.id, company.name)));
+}
+
 function guestFromRow(row) {
   return {
     id: row.id,
@@ -67,10 +86,20 @@ async function saveGuest(request, env, id = null) {
   try { photo = await imageUrl(body.photo, env, request.url); }
   catch { return json({ error: 'Não foi possível salvar a foto.' }, 503); }
   if (!photo) return json({ error: 'Envie uma foto válida.' }, 400);
-  const companyId = body.companyId && !Object.hasOwn(body, 'company') ? String(body.companyId).slice(0, 100) : null;
+  let companyId = body.companyId && !Object.hasOwn(body, 'company') ? String(body.companyId).slice(0, 100) : null;
   const companyValue = Object.hasOwn(body, 'company') ? company : null;
   const present = body.present ? '1' : '0';
   try {
+    if (companyValue) {
+      await ensureCompanies(env);
+      let profile = await env.DB.prepare('SELECT id FROM company_profiles WHERE lower(name) = lower(?) LIMIT 1').bind(companyValue).first();
+      if (!profile) {
+        const newId = `custom-${crypto.randomUUID()}`;
+        await env.DB.prepare('INSERT INTO company_profiles (id, name, description, photo) VALUES (?, ?, ?, ?)').bind(newId, companyValue, '', '').run();
+        profile = { id: newId };
+      }
+      companyId = profile.id;
+    } else if (companyValue === '') companyId = null;
     await env.DB.prepare('INSERT INTO guests (id, name, role, company_id, company, photo, present) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, role = excluded.role, company_id = excluded.company_id, company = excluded.company, photo = excluded.photo, present = excluded.present')
       .bind(guestId, name, role, companyId, companyValue, photo, present).run();
     return json({ id: guestId, name, role, ...(companyId ? { companyId } : {}), ...(companyValue !== null ? { company: companyValue } : {}), photo, present: present === '1' });
@@ -104,6 +133,39 @@ async function api(request, env, url) {
       const result = await env.DB.prepare('SELECT id, name, role, company_id, company, photo, present FROM guests ORDER BY name COLLATE NOCASE').all();
       return json((result.results || []).map(guestFromRow));
     } catch { return json({ error: 'Participantes indisponíveis no momento.' }, 503); }
+  }
+  if (url.pathname === '/api/companies' && request.method === 'GET') {
+    try {
+      await ensureCompanies(env);
+      const result = await env.DB.prepare('SELECT id, name, description, photo FROM company_profiles ORDER BY name COLLATE NOCASE').all();
+      return json(result.results || []);
+    } catch { return json({ error: 'Empresas indisponíveis no momento.' }, 503); }
+  }
+  const companyMatch = url.pathname.match(/^\/api\/admin\/companies\/([^/]+)$/);
+  if (companyMatch && request.method === 'PUT') {
+    if (!hasAdminPassword(request, env)) return json({ error: 'Acesso não autorizado.' }, 401);
+    let id;
+    try { id = decodeURIComponent(companyMatch[1]); } catch { return json({ error: 'Empresa inválida.' }, 400); }
+    if (!/^[a-z0-9][a-z0-9-]{1,100}$/i.test(id)) return json({ error: 'Empresa inválida.' }, 400);
+    let body;
+    try { body = await request.json(); } catch { return json({ error: 'Requisição inválida.' }, 400); }
+    const name = String(body.name || '').trim();
+    const description = String(body.description || '').trim();
+    if (!name || name.length > 120 || description.length > 1000) return json({ error: 'Confira o nome e a descrição da empresa.' }, 400);
+    try {
+      await ensureCompanies(env);
+      const previous = await env.DB.prepare('SELECT name, photo FROM company_profiles WHERE id = ?').bind(id).first();
+      if (!previous) return json({ error: 'Empresa não encontrada.' }, 404);
+      const duplicate = await env.DB.prepare('SELECT id FROM company_profiles WHERE lower(name) = lower(?) AND id != ? LIMIT 1').bind(name, id).first();
+      if (duplicate) return json({ error: 'Já existe uma empresa com este nome.' }, 409);
+      const photo = body.photo ? await imageUrl(body.photo, env, request.url) : previous.photo;
+      if (!photo && body.photo) return json({ error: 'Escolha uma foto válida.' }, 400);
+      await env.DB.batch([
+        env.DB.prepare('UPDATE company_profiles SET name = ?, description = ?, photo = ? WHERE id = ?').bind(name, description, photo, id),
+        env.DB.prepare('UPDATE guests SET company = ? WHERE company_id = ? AND company IS NOT NULL').bind(name, id),
+      ]);
+      return json({ id, name, description, photo });
+    } catch { return json({ error: 'Não foi possível salvar a empresa.' }, 503); }
   }
   if (url.pathname === '/api/admin/guests' && request.method === 'POST') {
     try { await ensureGuests(env); return saveGuest(request, env); }

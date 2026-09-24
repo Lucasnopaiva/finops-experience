@@ -20,3 +20,10 @@ export const appState = sqliteTable('app_state', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
+
+export const companyProfiles = sqliteTable('company_profiles', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  photo: text('photo').notNull(),
+});

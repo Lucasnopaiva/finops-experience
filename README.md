@@ -23,7 +23,9 @@ Abra o endereço exibido no terminal. A rota inicial é o fluxo do totem.
 
 ## Dados e integração futura
 
-Os dados iniciais estão em `src/data.js`. Na publicação, os convidados e links de LinkedIn são armazenados no banco e as novas fotos no armazenamento de imagens. A presença e o sorteio continuam vinculados ao dispositivo do totem. Em desenvolvimento com `npm run dev`, sem o backend da publicação, o app usa os dados mockados; o cadastro administrativo requer a publicação.
+Os dados iniciais estão em `src/data.js`. Na publicação, convidados, empresas e links de LinkedIn são armazenados no banco, e as novas fotos no armazenamento de imagens. A presença e o sorteio continuam vinculados ao dispositivo do totem. Em desenvolvimento com `npm run dev`, sem o backend da publicação, o app usa os dados mockados; o cadastro administrativo requer a publicação.
+
+Na lista de presença, toque três vezes rapidamente em “Lista de presença” para escolher entre gerenciar convidados ou empresas. Após informar a senha de operação, é possível editar nome, descrição e foto de cada empresa. As alterações aparecem no card da empresa nos perfis de networking. O sorteio considera somente os convidados presentes e alterna suas fotos durante a animação.
 
 O QR Code usa a origem atual e aponta para `/conexoes/?from=:id`, sem passar pela página inicial do totem. Para que celulares de convidados abram a página, a publicação precisa permitir acesso a visitantes sem login.
 

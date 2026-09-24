@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, extname } from 'node:path';
-import { participants } from '../src/data.js';
+import { companies, participants } from '../src/data.js';
 
 const output = resolve('dist');
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
@@ -19,4 +19,4 @@ function addDirectory(directory) {
 
 addDirectory(output);
 mkdirSync(join(output, 'server'), { recursive: true });
-writeFileSync(join(output, 'server', 'index.js'), `const ASSETS = ${JSON.stringify(assets)};\nconst SEED_GUESTS = ${JSON.stringify(participants)};\n${readFileSync(resolve('worker/index.js'), 'utf8')}`);
+writeFileSync(join(output, 'server', 'index.js'), `const ASSETS = ${JSON.stringify(assets)};\nconst SEED_GUESTS = ${JSON.stringify(participants)};\nconst SEED_COMPANIES = ${JSON.stringify(companies)};\n${readFileSync(resolve('worker/index.js'), 'utf8')}`);

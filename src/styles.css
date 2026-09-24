@@ -23,7 +23,7 @@
 * { box-sizing: border-box; }
 html { min-width: 320px; background: var(--ink); }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--ink); }
-button, input, a { font: inherit; }
+button, input, textarea, a { font: inherit; }
 button { border: 0; cursor: pointer; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible, [role='button']:focus-visible { outline: 2px solid var(--orange); outline-offset: 5px; }
@@ -219,9 +219,10 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .company-block, .colleagues-block { padding-top: 34px; }
 .section-kicker { color: var(--text-faint); font-size: 9px; font-weight: 700; letter-spacing: .17em; }
 .company-feature { display: flex; align-items: center; gap: 17px; margin-top: 14px; padding: 20px; background: var(--surface); border: 1px solid var(--line-soft); }
-.company-feature > div { display: flex; flex-direction: column; gap: 4px; }
+.company-feature > div { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
 .company-feature strong { color: var(--text); font-family: var(--serif); font-size: 28px; font-weight: 400; }
-.company-feature span { color: var(--text-soft); font-size: 11px; }
+.company-feature span { color: var(--text-soft); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.company-feature-photo { width: 82px; height: 82px; flex: none; object-fit: cover; border-radius: 3px; }
 .section-title { display: flex; align-items: end; justify-content: space-between; margin-bottom: 15px; }
 .section-title h2 { margin: 8px 0 0; color: var(--text); font-family: var(--serif); font-size: 29px; font-weight: 400; }
 .section-title > strong { display: grid; width: 32px; height: 32px; place-items: center; color: var(--ink); background: var(--orange); border-radius: 50%; font-size: 11px; }
@@ -361,6 +362,8 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .totem-home .hero-copy { width: min(100%, 900px); justify-self: center; align-items: center; text-align: center; }
 .totem-home .hero-copy h1 em { transform: none; }
 .totem-home .checkin-prompt, .totem-home .home-footer { width: min(100%, 790px); justify-self: center; }
+.totem-home .checkin-prompt { text-align: center; }
+.totem-home .checkin-copy { align-items: center; }
 .totem-home .event-intro { text-align: center; }
 
 /* Hidden administration entry */
@@ -372,6 +375,15 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .admin-modal h2 { margin: 10px 0 4px; color: var(--text); font-family: var(--serif); font-size: clamp(42px, 5.5vw, 68px); font-weight: 400; line-height: .9; letter-spacing: -.025em; }
 .admin-modal h2 em { color: var(--orange); font-weight: 400; }
 .admin-modal--login { width: min(90vw, 560px); overflow-y: auto; }
+.admin-modal--choice { width: min(90vw, 760px); }
+.admin-choice-heading { padding-right: 52px; }
+.admin-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 32px; }
+.admin-choice-grid > button { display: grid; grid-template-columns: 1fr auto; gap: 8px; min-height: 210px; padding: 26px; color: var(--text); text-align: left; background: var(--surface-2); border: 1px solid var(--line); }
+.admin-choice-grid > button:active, .admin-choice-grid > button:focus-visible { border-color: var(--orange); }
+.admin-choice-grid strong { grid-column: 1 / -1; align-self: end; font-family: var(--serif); font-size: 34px; font-weight: 400; }
+.admin-choice-grid small { color: var(--text-soft); font-size: 13px; }
+.admin-choice-grid > button > svg { color: var(--orange); }
+.admin-choice-icon { display: grid; width: 48px; height: 48px; place-items: center; color: var(--orange); border: 1px solid var(--line); border-radius: 50%; }
 .admin-login { display: flex; align-items: stretch; flex-direction: column; text-align: center; }
 .admin-lock { display: grid; width: 64px; height: 64px; margin: 0 auto 24px; place-items: center; color: var(--orange); background: rgba(255,90,31,.08); border: 1px solid rgba(255,90,31,.26); border-radius: 50%; }
 .admin-lock svg { width: 27px; height: 27px; }
@@ -395,11 +407,20 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .admin-guest-row > button { display: grid; width: 42px; height: 42px; place-items: center; color: var(--text-soft); background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 50%; }
 .admin-guest-row > button:hover { color: var(--orange); border-color: var(--orange); }
 .admin-guest-row > button:last-child:hover { color: #ff8762; border-color: #ff8762; }
+.admin-company-row { display: grid; grid-template-columns: 60px minmax(0, 1fr) 46px; align-items: center; gap: 16px; min-height: 90px; padding: 12px 4px; border-bottom: 1px solid var(--line-soft); }
+.admin-company-row > img, .admin-company-initials { width: 60px; height: 60px; object-fit: cover; border-radius: 3px; }
+.admin-company-initials { display: grid; place-items: center; color: var(--orange); background: var(--surface-2); border: 1px solid var(--line); font-weight: 700; }
+.admin-company-row > div { display: grid; min-width: 0; gap: 5px; }
+.admin-company-row strong { overflow: hidden; font-family: var(--serif); font-size: 27px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.admin-company-row div span { overflow: hidden; color: var(--text-soft); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-company-row > button { display: grid; width: 42px; height: 42px; place-items: center; color: var(--orange); background: var(--surface-2); border: 1px solid var(--line); border-radius: 50%; }
 .admin-form-heading { padding-right: 60px; }
 .admin-back { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 24px; padding: 0; color: var(--text-soft); background: transparent; font-size: 13px; }
 .guest-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(210px, 30%); gap: 24px 34px; min-height: 0; margin-top: 28px; overflow-y: auto; }
 .guest-fields { display: grid; gap: 17px; }
 .guest-form label small { color: var(--text-faint); font-size: 9px; font-weight: 500; }
+.company-form textarea { width: 100%; min-height: 150px; padding: 16px 17px; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: 2px; outline: none; font-size: 16px; font-weight: 400; letter-spacing: 0; line-height: 1.5; text-transform: none; resize: vertical; box-shadow: inset 3px 0 0 var(--orange); }
+.company-form textarea:focus { border-color: var(--orange); }
 .photo-field { display: flex; align-items: stretch; flex-direction: column; gap: 10px; }
 .photo-field > span { color: var(--text-soft); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .photo-preview { display: grid; min-height: 210px; flex: 1; place-items: center; color: var(--text-faint); background: var(--surface-2); border: 1px dashed var(--line); }
@@ -455,6 +476,8 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 }
 
 @media (max-width: 700px) {
+  .admin-choice-grid { grid-template-columns: 1fr; }
+  .admin-choice-grid > button { min-height: 130px; }
   .admin-modal { width: calc(100vw - 24px); padding: 26px 18px; }
   .admin-heading { align-items: stretch; flex-direction: column; padding-right: 50px; }
   .admin-add { width: 100%; }

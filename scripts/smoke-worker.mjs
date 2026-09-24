@@ -6,6 +6,7 @@ import worker from '../dist/server/index.js';
 const sqlite = new DatabaseSync(':memory:');
 sqlite.exec(readFileSync(new URL('../drizzle/0000_tiresome_penance.sql', import.meta.url), 'utf8'));
 sqlite.exec(readFileSync(new URL('../drizzle/0001_demonic_sentry.sql', import.meta.url), 'utf8'));
+sqlite.exec(readFileSync(new URL('../drizzle/0002_talented_betty_brant.sql', import.meta.url), 'utf8'));
 
 function query(sql, values = []) {
   return {
@@ -42,8 +43,15 @@ assert.equal((await request('/api/admin/verify', { method: 'POST', body: JSON.st
 assert.equal((await request('/api/admin/verify', { method: 'POST', body: JSON.stringify({ password: 'example-only' }) })).status, 204);
 const guests = await (await request('/api/participants')).json();
 assert.equal(guests.length, 12);
-assert.equal((await request('/api/linkedin/amanda-lima', { method: 'PUT', body: JSON.stringify({ url: 'https://www.linkedin.com/in/amanda-lima/' }) })).status, 401);
+const profiles = await (await request('/api/companies')).json();
+assert.equal(profiles.length, 6);
+assert.equal((await request('/api/admin/companies/picpay', { method: 'PUT', body: JSON.stringify({ name: 'PicPay Novo', description: 'Finanças digitais.', photo: '' }) })).status, 401);
 const authorized = { 'x-admin-password': 'example-only', 'content-type': 'application/json' };
+const updatedCompany = await request('/api/admin/companies/picpay', { method: 'PUT', headers: authorized, body: JSON.stringify({ name: 'PicPay Novo', description: 'Finanças digitais.', photo: 'data:image/jpeg;base64,/9j/2Q==' }) });
+assert.equal(updatedCompany.status, 200);
+assert.match((await updatedCompany.json()).photo, /^\/api\/photos\//);
+assert.equal((await (await request('/api/companies')).json()).find((company) => company.id === 'picpay').description, 'Finanças digitais.');
+assert.equal((await request('/api/linkedin/amanda-lima', { method: 'PUT', body: JSON.stringify({ url: 'https://www.linkedin.com/in/amanda-lima/' }) })).status, 401);
 assert.equal((await request('/api/linkedin/amanda-lima', { method: 'PUT', headers: authorized, body: JSON.stringify({ url: 'https://www.linkedin.com/in/amanda-lima/' }) })).status, 200);
 assert.equal((await (await request('/api/linkedin')).json())['amanda-lima'], 'https://www.linkedin.com/in/amanda-lima/');
 assert.equal((await request('/api/linkedin/amanda-lima', { method: 'DELETE', headers: authorized })).status, 200);
@@ -53,8 +61,9 @@ const guest = { id: 'teste-123', name: 'Teste Pessoa', role: 'Diretora', company
 assert.equal((await request('/api/admin/guests', { method: 'POST', body: JSON.stringify(guest) })).status, 401);
 assert.equal((await request('/api/admin/guests', { method: 'POST', headers: authorized, body: JSON.stringify(guest) })).status, 200);
 assert.equal((await (await request('/api/participants')).json()).length, 13);
+assert.match((await (await request('/api/participants')).json()).find((person) => person.id === guest.id).companyId, /^custom-/);
 assert.equal((await request('/api/admin/guests/teste-123', { method: 'PUT', headers: authorized, body: JSON.stringify({ ...guest, company: '' }) })).status, 200);
 assert.equal((await (await request('/api/participants')).json()).find((item) => item.id === guest.id).company, '');
 assert.equal((await request('/api/admin/guests/teste-123', { method: 'DELETE', headers: authorized })).status, 200);
 assert.equal((await (await request('/api/participants')).json()).length, 12);
-console.log('Worker: página mobile, convidados, autenticação e links verificados.');
+console.log('Worker: página mobile, convidados, empresas, fotos, autenticação e links verificados.');
