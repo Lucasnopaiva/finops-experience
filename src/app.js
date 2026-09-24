@@ -4,8 +4,8 @@ import { companies, event, participants as initialParticipants } from './data.js
 
 const root = document.querySelector('#app');
 const GUESTS_STORAGE_KEY = 'finops-experience-guests-v1';
-const ADMIN_PASSWORD = 'Hip2026';
 const BASE_GUEST_COUNT = initialParticipants.length;
+const NETWORK_PATH = '/conexoes/';
 
 const state = {
   totemQuery: '',
@@ -18,11 +18,22 @@ const state = {
   adminAuthenticated: false,
   adminView: 'login',
   adminError: '',
+  adminPassword: '',
   adminEditingId: null,
   adminPhoto: '',
   adminTapCount: 0,
   adminLastTap: 0,
   confirmDialog: null,
+  networkAdminOpen: false,
+  networkAdminAuthenticated: false,
+  networkAdminView: 'login',
+  networkAdminEditingId: null,
+  networkAdminError: '',
+  networkAdminPassword: '',
+  networkAdminTapCount: 0,
+  networkAdminLastTap: 0,
+  networkAdminDeleteId: null,
+  networkAdminDraft: '',
 };
 
 let guestList = loadGuests();
@@ -64,6 +75,25 @@ function persistGuests() {
   }
 }
 
+async function syncGuests() {
+  try {
+    const response = await fetch('/api/participants', { cache: 'no-store' });
+    if (!response.ok) return;
+    const serverGuests = await response.json();
+    if (!Array.isArray(serverGuests)) return;
+    const localById = new Map(guestList.map((person) => [person.id, person]));
+    const isTotem = !window.location.pathname.startsWith(NETWORK_PATH) && routeParts()[0] !== 'networking';
+    guestList = serverGuests.map((person) => ({
+      ...person,
+      linkedin: localById.get(person.id)?.linkedin || '',
+      present: isTotem ? (localById.get(person.id)?.present ?? person.present) : person.present,
+    }));
+    if (isTotem) guestList.push(...[...localById.values()].filter((person) => !serverGuests.some((remote) => remote.id === person.id)));
+    if (isTotem) persistGuests();
+    render();
+  } catch { /* Os dados mockados permanecem disponíveis quando a rede falha. */ }
+}
+
 function escapeHtml(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -80,8 +110,34 @@ function navigate(route) {
 }
 
 function routeParts() {
-  const raw = window.location.hash.replace(/^#/, '') || '/totem';
+  const onNetworkPage = window.location.pathname.startsWith(NETWORK_PATH);
+  const raw = window.location.hash.replace(/^#/, '') || (onNetworkPage ? '/networking' : '/totem');
+  if (onNetworkPage && !raw.startsWith('/networking')) {
+    return ['networking', ...raw.split('?')[0].split('/').filter(Boolean)];
+  }
   return raw.split('?')[0].split('/').filter(Boolean);
+}
+
+function networkListRoute() {
+  return window.location.pathname.startsWith(NETWORK_PATH) ? '#/' : '#/networking';
+}
+
+function networkProfileRoute(id) {
+  return window.location.pathname.startsWith(NETWORK_PATH) ? `#/perfil/${id}` : `#/networking/perfil/${id}`;
+}
+
+function linkedInUrl(person) {
+  try {
+    const url = new URL(person.linkedin || '');
+    if (url.protocol !== 'https:' || !['linkedin.com', 'www.linkedin.com'].includes(url.hostname)) return null;
+    return /^\/(in|pub)\/[^/]+/.test(url.pathname) ? url.href : null;
+  } catch { return null; }
+}
+
+function normalizeLinkedIn(value) {
+  const trimmed = value.trim();
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return linkedInUrl({ linkedin: candidate });
 }
 
 function findPerson(id) {
@@ -108,7 +164,7 @@ function companyPeople(person) {
 }
 
 function personImage(person, className = '') {
-  return `<img class="${className}" src="${person.photo}" alt="Foto de ${escapeHtml(person.name)}" loading="lazy" />`;
+  return `<img class="${className}" src="${escapeHtml(person.photo)}" alt="Foto de ${escapeHtml(person.name)}" loading="lazy" />`;
 }
 
 function presentCount() {
@@ -273,9 +329,10 @@ function adminGuestList() {
     <button data-action="delete-guest" data-id="${person.id}" aria-label="Remover ${escapeHtml(person.name)}">${icons.trash}</button>
   </div>`).join('');
   return adminShell(`<header class="admin-heading">
-      <div><span class="modal-kicker">ADMINISTRAÇÃO</span><h2>Convidados</h2><p>${guestList.length} registros neste dispositivo</p></div>
+      <div><span class="modal-kicker">ADMINISTRAÇÃO</span><h2>Convidados</h2><p>${guestList.length} convidados cadastrados</p></div>
       <button class="primary-button admin-add" data-action="add-guest">${icons.plus} Adicionar convidado</button>
     </header>
+    ${state.adminError ? `<span class="form-error">${escapeHtml(state.adminError)}</span>` : ''}
     <div class="admin-guest-list">${rows || '<div class="empty-state"><strong>Nenhum convidado.</strong></div>'}</div>`, 'admin-modal--list');
 }
 
@@ -309,7 +366,7 @@ function renderQr(id) {
   const person = findPerson(id) || guestList[0];
   if (!person) return navigate('#/totem/presenca');
   state.checkedInId = person.id;
-  const networkUrl = `${window.location.origin}${window.location.pathname}#/networking?from=${person.id}`;
+  const networkUrl = `${window.location.origin}${NETWORK_PATH}?from=${encodeURIComponent(person.id)}`;
   root.innerHTML = `<main class="totem-screen qr-screen">
     ${totemHeader('03', 'Conecte-se')}
     <section class="qr-content">
@@ -333,7 +390,7 @@ function renderQr(id) {
 }
 
 function mobileHeader({ back = false } = {}) {
-  return `<header class="mobile-header">${back ? `<button class="mobile-back" data-action="mobile-back" aria-label="Voltar">${icons.back}</button>` : '<span class="event-dot" aria-hidden="true"></span>'}<span class="mobile-event">FINOPS EXPERIENCE</span></header>`;
+  return `<header class="mobile-header">${back ? `<button class="mobile-back" data-action="mobile-back" aria-label="Voltar">${icons.back}</button>` : '<span class="event-dot" aria-hidden="true"></span>'}<button class="mobile-event mobile-secret-trigger" data-action="network-admin-trigger" aria-label="FinOps Experience">FINOPS EXPERIENCE</button></header>`;
 }
 
 function participantCard(person, index = 0) {
@@ -361,23 +418,135 @@ function renderNetworking() {
     </div>
     <section id="network-grid" class="network-grid">${filtered.length ? filtered.map(participantCard).join('') : `<div class="empty-state empty-state--mobile"><strong>Nenhuma conexão encontrada.</strong><span>Tente buscar por outro nome ou empresa.</span></div>`}</section>
     <footer class="mobile-footer">Conexões que continuam depois do evento.</footer>
+    ${state.networkAdminOpen ? networkAdminOverlay() : ''}
   </main>`;
 }
 
 function renderProfile(id) {
   hideKeyboard();
   const person = findPerson(id) || guestList[0];
-  if (!person) return navigate('#/networking');
+  if (!person) return navigate(networkListRoute());
   const company = personCompany(person);
   const colleagues = companyPeople(person);
   root.innerHTML = `<main class="mobile-screen profile-screen">
     <section class="profile-hero">${mobileHeader({ back: true })}<div class="profile-photo">${personImage(person)}<span>${companyLogo(person, 'lg')}</span></div><div class="profile-heading"><span class="eyebrow">PERFIL DO PARTICIPANTE</span><h1>${escapeHtml(person.name)}</h1><p>${escapeHtml(person.role)}<br/><strong>${escapeHtml(company.name)}</strong></p></div></section>
     <section class="profile-body">
-      <a class="linkedin-button" href="${person.linkedin || 'https://www.linkedin.com/'}" target="_blank" rel="noreferrer">${icons.linkedin}<span>Conectar no LinkedIn</span>${icons.arrow}</a>
-      <div class="company-block"><span class="section-kicker">SOBRE A EMPRESA</span><div class="company-feature">${companyLogo(person, 'xl')}<div><strong>${escapeHtml(company.name)}</strong><span>Serviços financeiros & tecnologia</span></div></div></div>
-      <div class="colleagues-block"><div class="section-title"><div><span class="section-kicker">MAIS CONEXÕES</span><h2>Também da ${escapeHtml(company.name)}</h2></div><strong>${colleagues.length}</strong></div><div class="colleague-list">${colleagues.length ? colleagues.map(participantCard).join('') : '<p class="solo-company">Você encontrou o único participante desta empresa por aqui.</p>'}</div></div>
+      ${linkedInUrl(person) ? `<a class="linkedin-button" href="${escapeHtml(linkedInUrl(person))}" target="_blank" rel="noopener noreferrer">${icons.linkedin}<span>Conectar no LinkedIn</span>${icons.arrow}</a>` : `<div class="linkedin-button linkedin-button--unavailable">${icons.linkedin}<span>LinkedIn não cadastrado</span></div>`}
+      <div class="company-block"><span class="section-kicker">EMPRESA</span><div class="company-feature">${companyLogo(person, 'xl')}<div><strong>${escapeHtml(company.name)}</strong><span>${company.name === '-' ? 'Não informada' : 'Empresa deste participante'}</span></div></div></div>
+      ${company.name !== '-' ? `<div class="colleagues-block"><div class="section-title"><div><span class="section-kicker">MAIS CONEXÕES</span><h2>Também da ${escapeHtml(company.name)}</h2></div><strong>${colleagues.length}</strong></div><div class="colleague-list">${colleagues.length ? colleagues.map(participantCard).join('') : '<p class="solo-company">Você encontrou o único participante desta empresa por aqui.</p>'}</div></div>` : ''}
     </section>
+    ${state.networkAdminOpen ? networkAdminOverlay() : ''}
   </main>`;
+}
+
+function networkAdminOverlay() {
+  if (!state.networkAdminAuthenticated || state.networkAdminView === 'login') {
+    return `<div class="modal-backdrop network-admin-backdrop" role="dialog" aria-modal="true" aria-label="Gerenciar LinkedIn">
+      <section class="network-admin-modal network-admin-modal--login">
+        <button class="icon-close" data-action="network-admin-close" aria-label="Fechar administração">×</button>
+        <span class="admin-lock">${icons.lock}</span><span class="modal-kicker">ACESSO RESTRITO</span>
+        <h2>Links do<br/><em>LinkedIn.</em></h2>
+        <p>Digite a senha de operação do evento.</p>
+        <form id="network-admin-login"><label>Senha<input name="password" type="password" required autocomplete="off" placeholder="Digite a senha" /></label>
+          ${state.networkAdminError ? `<span class="form-error">${escapeHtml(state.networkAdminError)}</span>` : ''}
+          <button class="primary-button" type="submit">Entrar ${icons.arrow}</button></form>
+      </section>
+    </div>`;
+  }
+  if (state.networkAdminView === 'form') {
+    const person = findPerson(state.networkAdminEditingId);
+    return `<div class="modal-backdrop network-admin-backdrop" role="dialog" aria-modal="true" aria-label="Editar LinkedIn">
+      <section class="network-admin-modal">
+        <button class="icon-close" data-action="network-admin-close" aria-label="Fechar administração">×</button>
+        <button class="admin-back" data-action="network-admin-list">${icons.back} Voltar</button>
+        <span class="modal-kicker">PERFIL PROFISSIONAL</span>
+        <h2>${escapeHtml(person?.name || 'Convidado')}</h2>
+        <p>Adicione o endereço do perfil pessoal no LinkedIn.</p>
+        <form id="network-admin-form"><label>Link do LinkedIn<input name="linkedin" type="url" required inputmode="url" autocomplete="url" placeholder="https://www.linkedin.com/in/..." value="${escapeHtml(state.networkAdminDraft)}" /></label>
+          ${state.networkAdminError ? `<span class="form-error">${escapeHtml(state.networkAdminError)}</span>` : ''}
+          <button class="primary-button" type="submit">Salvar link ${icons.arrow}</button></form>
+      </section>
+    </div>`;
+  }
+  const rows = guestList.map((person) => `<div class="network-admin-row">
+      ${personImage(person)}<div><strong>${escapeHtml(person.name)}</strong><span>${linkedInUrl(person) ? 'Perfil cadastrado' : 'Sem link cadastrado'}</span></div>
+      <button data-action="network-admin-edit" data-id="${escapeHtml(person.id)}" aria-label="${linkedInUrl(person) ? 'Editar' : 'Adicionar'} link de ${escapeHtml(person.name)}">${linkedInUrl(person) ? icons.edit : icons.plus}</button>
+      ${linkedInUrl(person) ? `<button data-action="network-admin-remove" data-id="${escapeHtml(person.id)}" aria-label="Remover link de ${escapeHtml(person.name)}">${icons.trash}</button>` : ''}
+    </div>`).join('');
+  return `<div class="modal-backdrop network-admin-backdrop" role="dialog" aria-modal="true" aria-label="Gerenciar LinkedIn">
+    <section class="network-admin-modal network-admin-modal--list">
+      <button class="icon-close" data-action="network-admin-close" aria-label="Fechar administração">×</button>
+      <span class="modal-kicker">ADMINISTRAÇÃO</span><h2>LinkedIn dos<br/><em>convidados.</em></h2>
+      <p>Adicione, atualize ou remova os perfis profissionais.</p>
+      <div class="network-admin-rows">${rows}</div>
+      ${state.networkAdminError ? `<span class="form-error">${escapeHtml(state.networkAdminError)}</span>` : ''}
+      ${state.networkAdminDeleteId ? `<div class="network-admin-confirm"><p>Remover o link de ${escapeHtml(findPerson(state.networkAdminDeleteId)?.name || 'este convidado')}?</p><div><button class="secondary-button" data-action="network-admin-cancel-remove">Cancelar</button><button class="primary-button primary-button--danger" data-action="network-admin-confirm-remove">Remover link</button></div></div>` : ''}
+    </section>
+  </div>`;
+}
+
+function renderNetworkCurrent() {
+  const [, page, id] = routeParts();
+  if (page === 'perfil') renderProfile(id);
+  else renderNetworking();
+}
+
+async function syncLinkedInLinks() {
+  if (routeParts()[0] !== 'networking') return;
+  try {
+    const response = await fetch('/api/linkedin', { cache: 'no-store' });
+    if (!response.ok) return;
+    const links = await response.json();
+    for (const person of guestList) if (Object.hasOwn(links, person.id)) person.linkedin = links[person.id] || '';
+    renderNetworkCurrent();
+  } catch { /* A lista continua visível mesmo se a conexão falhar. */ }
+}
+
+function openNetworkAdmin() {
+  state.networkAdminOpen = true;
+  state.networkAdminAuthenticated = false;
+  state.networkAdminView = 'login';
+  state.networkAdminError = '';
+  state.networkAdminDeleteId = null;
+  renderNetworkCurrent();
+}
+
+function handleNetworkAdminTrigger() {
+  const now = Date.now();
+  state.networkAdminTapCount = now - state.networkAdminLastTap < 900 ? state.networkAdminTapCount + 1 : 1;
+  state.networkAdminLastTap = now;
+  if (state.networkAdminTapCount >= 5) { state.networkAdminTapCount = 0; openNetworkAdmin(); }
+}
+
+async function saveLinkedIn(id, url) {
+  const response = await fetch(`/api/linkedin/${encodeURIComponent(id)}`, {
+    method: url ? 'PUT' : 'DELETE',
+    headers: { 'content-type': 'application/json', 'x-admin-password': state.networkAdminPassword },
+    body: url ? JSON.stringify({ url }) : undefined,
+  });
+  if (!response.ok) throw new Error('Não foi possível salvar o link. Confira a conexão e tente novamente.');
+  const person = findPerson(id);
+  if (person) person.linkedin = url;
+}
+
+async function saveGuestOnServer(person, editing) {
+  const path = editing ? `/api/admin/guests/${encodeURIComponent(person.id)}` : '/api/admin/guests';
+  const response = await fetch(path, {
+    method: editing ? 'PUT' : 'POST',
+    headers: { 'content-type': 'application/json', 'x-admin-password': state.adminPassword },
+    body: JSON.stringify(person),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Não foi possível salvar o convidado. Tente novamente.');
+  return result;
+}
+
+async function deleteGuestOnServer(id) {
+  const response = await fetch(`/api/admin/guests/${encodeURIComponent(id)}`, {
+    method: 'DELETE', headers: { 'x-admin-password': state.adminPassword },
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Não foi possível remover o convidado.');
 }
 
 function render() {
@@ -549,9 +718,29 @@ document.addEventListener('click', (eventTarget) => {
     if (action === 'open-raffle') { state.raffleOpen = true; renderTotemHome(); }
     if (action === 'close-raffle') { state.raffleOpen = false; state.raffleRunning = false; renderTotemHome(); }
     if (action === 'run-raffle') runRaffle();
-    if (action === 'mobile-back') window.history.back();
+    if (action === 'mobile-back') navigate(networkListRoute());
+    if (action === 'network-admin-trigger') handleNetworkAdminTrigger();
+    if (action === 'network-admin-close') { state.networkAdminOpen = false; state.networkAdminPassword = ''; renderNetworkCurrent(); }
+    if (action === 'network-admin-list') { state.networkAdminView = 'list'; state.networkAdminError = ''; renderNetworkCurrent(); }
+    if (action === 'network-admin-edit') {
+      state.networkAdminEditingId = actionButton.dataset.id;
+      state.networkAdminDraft = linkedInUrl(findPerson(state.networkAdminEditingId)) || '';
+      state.networkAdminError = '';
+      state.networkAdminView = 'form';
+      renderNetworkCurrent();
+    }
+    if (action === 'network-admin-remove') { state.networkAdminDeleteId = actionButton.dataset.id; renderNetworkCurrent(); }
+    if (action === 'network-admin-cancel-remove') { state.networkAdminDeleteId = null; renderNetworkCurrent(); }
+    if (action === 'network-admin-confirm-remove') {
+      const id = state.networkAdminDeleteId;
+      saveLinkedIn(id, '').then(() => {
+        state.networkAdminDeleteId = null;
+        state.networkAdminError = '';
+        renderNetworkCurrent();
+      }).catch((error) => { state.networkAdminError = error.message; renderNetworkCurrent(); });
+    }
     if (action === 'admin-trigger') handleAdminTrigger();
-    if (action === 'close-admin') { state.adminOpen = false; state.confirmDialog = null; renderAttendance(); }
+    if (action === 'close-admin') { state.adminOpen = false; state.adminPassword = ''; state.confirmDialog = null; renderAttendance(); }
     if (action === 'add-guest') openGuestForm();
     if (action === 'edit-guest') openGuestForm(actionButton.dataset.id);
     if (action === 'admin-list') { state.adminView = 'list'; state.adminError = ''; renderAttendance(); }
@@ -566,10 +755,18 @@ document.addEventListener('click', (eventTarget) => {
       if (person) { person.present = false; persistGuests(); state.confirmDialog = null; renderAttendance(); }
     }
     if (action === 'confirm-delete-guest') {
-      guestList = guestList.filter((person) => person.id !== state.confirmDialog?.personId);
-      persistGuests();
-      state.confirmDialog = null;
-      renderAttendance();
+      const id = state.confirmDialog?.personId;
+      deleteGuestOnServer(id).then(() => {
+        guestList = guestList.filter((person) => person.id !== id);
+        persistGuests();
+        state.confirmDialog = null;
+        state.adminError = '';
+        renderAttendance();
+      }).catch((error) => {
+        state.confirmDialog = null;
+        state.adminError = error.message;
+        renderAttendance();
+      });
     }
     return;
   }
@@ -581,7 +778,7 @@ document.addEventListener('click', (eventTarget) => {
     return;
   }
   const profileCard = eventTarget.target.closest('[data-profile]');
-  if (profileCard) navigate(`#/networking/perfil/${profileCard.dataset.profile}`);
+  if (profileCard) navigate(networkProfileRoute(profileCard.dataset.profile));
 });
 
 document.addEventListener('keydown', (keyEvent) => {
@@ -623,15 +820,50 @@ document.addEventListener('change', async (changeEvent) => {
 });
 
 document.addEventListener('submit', (submitEvent) => {
+  if (submitEvent.target.matches('#network-admin-login')) {
+    submitEvent.preventDefault();
+    const password = String(new FormData(submitEvent.target).get('password') || '');
+    fetch('/api/admin/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) })
+      .then((response) => {
+        if (!response.ok) throw new Error(response.status === 401 ? 'Senha incorreta.' : 'Não foi possível validar a senha. Tente novamente.');
+        state.networkAdminPassword = password;
+        state.networkAdminAuthenticated = true;
+        state.networkAdminView = 'list';
+        state.networkAdminError = '';
+        renderNetworkCurrent();
+      })
+      .catch((error) => { state.networkAdminError = error.message; renderNetworkCurrent(); });
+    return;
+  }
+  if (submitEvent.target.matches('#network-admin-form')) {
+    submitEvent.preventDefault();
+    const raw = String(new FormData(submitEvent.target).get('linkedin') || '');
+    state.networkAdminDraft = raw;
+    const url = normalizeLinkedIn(raw);
+    if (!url) {
+      state.networkAdminError = 'Informe o endereço de um perfil pessoal do LinkedIn (linkedin.com/in/...).';
+      renderNetworkCurrent();
+      return;
+    }
+    saveLinkedIn(state.networkAdminEditingId, url)
+      .then(() => { state.networkAdminView = 'list'; state.networkAdminError = ''; renderNetworkCurrent(); })
+      .catch((error) => { state.networkAdminError = error.message; renderNetworkCurrent(); });
+    return;
+  }
   if (submitEvent.target.matches('#admin-login-form')) {
     submitEvent.preventDefault();
     const password = new FormData(submitEvent.target).get('password');
-    if (password === ADMIN_PASSWORD) {
-      state.adminAuthenticated = true;
-      state.adminView = 'list';
-      state.adminError = '';
-    } else state.adminError = 'Senha incorreta. Tente novamente.';
-    renderAttendance();
+    fetch('/api/admin/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) })
+      .then((response) => {
+        if (!response.ok) throw new Error(response.status === 401 ? 'Senha incorreta. Tente novamente.' : 'Não foi possível validar a senha. Tente novamente.');
+        state.adminAuthenticated = true;
+        state.adminPassword = String(password);
+        state.adminView = 'list';
+        state.adminError = '';
+        renderAttendance();
+      })
+      .catch((error) => { state.adminError = error.message; renderAttendance(); });
+    return;
   }
   if (submitEvent.target.matches('#guest-form')) {
     submitEvent.preventDefault();
@@ -644,22 +876,37 @@ document.addEventListener('submit', (submitEvent) => {
       renderAttendance();
       return;
     }
-    if (state.adminEditingId) {
-      const person = findPerson(state.adminEditingId);
-      if (person) Object.assign(person, { name, role, company, photo: state.adminPhoto });
-    } else {
-      const idBase = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'convidado';
-      guestList.push({ id: `${idBase}-${Date.now()}`, name, role, company, photo: state.adminPhoto, linkedin: 'https://www.linkedin.com/', present: false });
-    }
-    if (persistGuests()) {
+    const previous = state.adminEditingId ? findPerson(state.adminEditingId) : null;
+    const idBase = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'convidado';
+    const draft = {
+      id: previous?.id || `${idBase}-${Date.now()}`,
+      name, role, company, photo: state.adminPhoto,
+      present: previous?.present || false,
+    };
+    const editing = Boolean(previous);
+    saveGuestOnServer(draft, editing).then((saved) => {
+      const complete = { ...saved, linkedin: previous?.linkedin || '' };
+      if (editing) guestList = guestList.map((person) => person.id === complete.id ? complete : person);
+      else guestList.push(complete);
+      persistGuests();
       state.adminView = 'list';
       state.adminEditingId = null;
       state.adminPhoto = '';
       state.adminError = '';
-    }
-    renderAttendance();
+      renderAttendance();
+    }).catch((error) => {
+      state.adminError = error.message;
+      const field = document.querySelector('.guest-form-error');
+      if (field) field.textContent = error.message;
+      else {
+        const submit = document.querySelector('.guest-save');
+        submit?.insertAdjacentHTML('beforebegin', `<span class="form-error guest-form-error">${escapeHtml(error.message)}</span>`);
+      }
+    });
+    return;
   }
 });
 
 window.addEventListener('hashchange', render);
 render();
+void (async () => { await syncGuests(); await syncLinkedInLinks(); })();

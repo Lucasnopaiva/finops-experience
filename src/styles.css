@@ -165,7 +165,8 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 /* Networking mobile */
 .mobile-screen { width: 100%; min-height: 100dvh; color: var(--text); background: var(--ink); }
 .mobile-header { display: flex; align-items: center; justify-content: space-between; height: 76px; padding: max(17px, env(safe-area-inset-top)) 20px 10px; color: var(--text); background: var(--ink); border-bottom: 1px solid var(--line-soft); }
-.mobile-event { color: var(--text-soft); font-size: 9px; font-weight: 700; letter-spacing: .16em; }
+.mobile-event { color: var(--text-soft); font-size: 11px; font-weight: 700; letter-spacing: .16em; }
+.mobile-secret-trigger { padding: 12px 0 12px 12px; background: transparent; user-select: none; -webkit-user-select: none; }
 .event-dot { width: 7px; height: 7px; }
 .network-hero { padding: 44px 20px 40px; background: var(--ink); }
 .network-count { color: var(--orange); font-size: 10px; font-weight: 700; letter-spacing: .18em; }
@@ -211,6 +212,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .profile-body { padding: 20px 16px 44px; background: #110d0b; border-top: 1px solid var(--line-soft); }
 .linkedin-button { display: grid; grid-template-columns: 25px 1fr 21px; align-items: center; gap: 12px; min-height: 64px; padding: 0 18px; color: white; text-decoration: none; background: #0a66c2; border-radius: 2px; font-size: 14px; font-weight: 700; }
 .linkedin-button:active { background: #0858a8; }
+.linkedin-button--unavailable { color: var(--text-soft); background: var(--surface-2); border: 1px solid var(--line); }
 .company-block, .colleagues-block { padding-top: 34px; }
 .section-kicker { color: var(--text-faint); font-size: 9px; font-weight: 700; letter-spacing: .17em; }
 .company-feature { display: flex; align-items: center; gap: 17px; margin-top: 14px; padding: 20px; background: var(--surface); border: 1px solid var(--line-soft); }
@@ -222,6 +224,51 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .section-title > strong { display: grid; width: 32px; height: 32px; place-items: center; color: var(--ink); background: var(--orange); border-radius: 50%; font-size: 11px; }
 .colleague-list { display: grid; gap: 9px; }
 .solo-company { color: var(--text-soft); font-size: 13px; line-height: 1.6; }
+
+/* LinkedIn management, opened by the discreet event header gesture */
+.network-admin-backdrop { position: fixed; z-index: 60; padding: 16px; }
+.network-admin-modal { position: relative; display: flex; width: min(100%, 700px); max-height: min(90dvh, 820px); flex-direction: column; padding: clamp(26px, 5vw, 44px); overflow: hidden; color: var(--text); background: #130f0c; border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 36px 110px rgba(0,0,0,.65); }
+.network-admin-modal::before { content: ''; position: absolute; top: 0; left: 0; width: 23%; height: 3px; background: var(--orange); }
+.network-admin-modal h2 { margin: 14px 40px 8px 0; font-family: var(--serif); font-size: clamp(43px, 8vw, 65px); font-weight: 400; line-height: .9; }
+.network-admin-modal h2 em { color: var(--orange); font-weight: 400; }
+.network-admin-modal > p { margin: 10px 0 22px; color: var(--text-soft); font-size: 14px; line-height: 1.5; }
+.network-admin-modal--login { width: min(100%, 510px); align-items: center; text-align: center; }
+.network-admin-modal--login h2 { margin-right: 0; }
+.network-admin-modal--login .admin-lock { margin-bottom: 20px; }
+.network-admin-modal form { display: grid; width: 100%; gap: 14px; }
+.network-admin-modal form label { display: grid; gap: 9px; color: var(--text-soft); font-size: 13px; font-weight: 700; }
+.network-admin-modal form input { width: 100%; min-height: 56px; padding: 0 16px; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: 2px; box-shadow: inset 3px 0 0 var(--orange); font-size: 16px; }
+.network-admin-modal .primary-button { width: 100%; }
+.network-admin-rows { min-height: 0; overflow-y: auto; scrollbar-color: var(--orange) var(--surface-2); }
+.network-admin-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) 42px 42px; align-items: center; gap: 10px; min-height: 72px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.network-admin-row > img { width: 48px; height: 48px; object-fit: cover; border-radius: 50%; }
+.network-admin-row > div { display: grid; min-width: 0; gap: 3px; }
+.network-admin-row strong { overflow: hidden; font-family: var(--serif); font-size: 22px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.network-admin-row span { color: var(--text-soft); font-size: 12px; }
+.network-admin-row > button { display: grid; width: 42px; height: 42px; place-items: center; color: var(--orange); background: var(--surface-2); border: 1px solid var(--line); border-radius: 50%; }
+.network-admin-row > button:last-child { grid-column: 4; }
+.network-admin-confirm { padding-top: 16px; }
+.network-admin-confirm p { margin: 0 0 14px; color: var(--text); font-size: 14px; }
+.network-admin-confirm > div { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.network-admin-confirm .primary-button, .network-admin-confirm .secondary-button { min-height: 52px; padding: 8px; font-size: 13px; }
+
+@media (min-width: 900px) {
+  .mobile-screen { max-width: 1180px; margin: 0 auto; border-right: 1px solid var(--line-soft); border-left: 1px solid var(--line-soft); }
+  .mobile-header { padding-right: 48px; padding-left: 48px; }
+  .network-hero { padding: 62px 48px 42px; }
+  .network-hero h1 { font-size: 82px; }
+  .network-hero p { max-width: 520px; font-size: 16px; }
+  .network-sticky { padding: 18px 48px 16px; }
+  .network-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 0 48px 58px; }
+  .profile-hero { display: grid; grid-template-columns: minmax(300px, 42%) minmax(0, 1fr); align-items: center; gap: 0 40px; padding-bottom: 44px; }
+  .profile-hero .mobile-header { grid-column: 1 / -1; }
+  .profile-photo { width: calc(100% - 48px); height: min(43vw, 510px); margin: 28px 0 0 48px; }
+  .profile-heading { padding: 28px 48px 0 0; }
+  .profile-heading h1 { font-size: clamp(70px, 7vw, 106px); }
+  .profile-heading p { font-size: 18px; }
+  .profile-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 36px; padding: 28px 48px 70px; }
+  .linkedin-button { grid-column: 1 / -1; }
+}
 
 /* Notebook and other landscape displays */
 @media (min-aspect-ratio: 1 / 1) and (min-width: 760px) {
