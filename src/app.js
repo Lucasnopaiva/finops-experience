@@ -383,6 +383,7 @@ function adminGuestForm() {
       <div class="guest-fields">
         <label>Nome<input data-keyboard name="name" inputmode="none" autocomplete="off" required placeholder="Nome completo" value="${escapeHtml(person?.name || '')}" /></label>
         <label>Cargo<input data-keyboard name="role" inputmode="none" autocomplete="off" required placeholder="Cargo ou função" value="${escapeHtml(person?.role || '')}" /></label>
+        <label>LinkedIn <small>opcional</small><input data-keyboard name="linkedin" type="url" inputmode="none" autocomplete="off" placeholder="linkedin.com/in/seu-perfil" value="${escapeHtml(person?.linkedin || '')}" /></label>
         <label>Empresa <small>opcional</small><input data-keyboard name="company" inputmode="none" autocomplete="off" placeholder="Será exibido “-” se ficar vazio" value="${escapeHtml(company === '-' ? '' : company)}" /></label>
       </div>
       <div class="photo-field">
@@ -390,7 +391,7 @@ function adminGuestForm() {
         <div class="photo-preview ${photo ? 'has-photo' : ''}">${photo ? `<img id="guest-photo-preview" src="${photo}" alt="Prévia da foto" />` : `<span id="guest-photo-placeholder">${icons.upload}<small>Selecione uma foto</small></span>`}</div>
         <label class="secondary-button photo-upload">${icons.upload} ${photo ? 'Trocar foto' : 'Escolher foto'}<input id="guest-photo" type="file" accept="image/*" ${photo ? '' : 'required'} /></label>
       </div>
-      ${state.adminError ? `<span class="form-error guest-form-error">${escapeHtml(state.adminError)}</span>` : ''}
+      <span class="form-error guest-form-error" id="guest-form-error">${escapeHtml(state.adminError)}</span>
       <button class="primary-button guest-save" type="submit">${person ? 'Salvar alterações' : 'Adicionar convidado'} ${icons.arrow}</button>
     </form>`, 'admin-modal--form');
 }
@@ -554,13 +555,12 @@ function renderNetworkCurrent() {
 }
 
 async function syncLinkedInLinks() {
-  if (routeParts()[0] !== 'networking') return;
   try {
     const response = await fetch('/api/linkedin', { cache: 'no-store' });
     if (!response.ok) return;
     const links = await response.json();
     for (const person of guestList) if (Object.hasOwn(links, person.id)) person.linkedin = links[person.id] || '';
-    renderNetworkCurrent();
+    render();
   } catch { /* A lista continua visível mesmo se a conexão falhar. */ }
 }
 
@@ -580,10 +580,10 @@ function handleNetworkAdminTrigger() {
   if (state.networkAdminTapCount >= 5) { state.networkAdminTapCount = 0; openNetworkAdmin(); }
 }
 
-async function saveLinkedIn(id, url) {
+async function saveLinkedIn(id, url, password = state.networkAdminPassword) {
   const response = await fetch(`/api/linkedin/${encodeURIComponent(id)}`, {
     method: url ? 'PUT' : 'DELETE',
-    headers: { 'content-type': 'application/json', 'x-admin-password': state.networkAdminPassword },
+    headers: { 'content-type': 'application/json', 'x-admin-password': password },
     body: url ? JSON.stringify({ url }) : undefined,
   });
   if (!response.ok) throw new Error('Não foi possível salvar o link. Confira a conexão e tente novamente.');
@@ -1005,7 +1005,16 @@ document.addEventListener('submit', (submitEvent) => {
     const values = new FormData(submitEvent.target);
     const name = String(values.get('name') || '').trim();
     const role = String(values.get('role') || '').trim();
+    const rawLinkedIn = String(values.get('linkedin') || '').trim();
     const company = String(values.get('company') || '').trim();
+    const linkedin = rawLinkedIn ? normalizeLinkedIn(rawLinkedIn) : '';
+    const errorField = document.querySelector('#guest-form-error');
+    if (rawLinkedIn && !linkedin) {
+      const message = 'Informe um perfil pessoal válido do LinkedIn (linkedin.com/in/...).';
+      state.adminError = message;
+      if (errorField) errorField.textContent = message;
+      return;
+    }
     if (!name || !role || !state.adminPhoto) {
       state.adminError = 'Preencha nome, cargo e foto para continuar.';
       renderAttendance();
@@ -1019,8 +1028,9 @@ document.addEventListener('submit', (submitEvent) => {
       present: previous?.present || false,
     };
     const editing = Boolean(previous);
-    saveGuestOnServer(draft, editing).then((saved) => {
-      const complete = { ...saved, linkedin: previous?.linkedin || '' };
+    saveGuestOnServer(draft, editing).then(async (saved) => {
+      await saveLinkedIn(saved.id, linkedin, state.adminPassword);
+      const complete = { ...saved, linkedin };
       if (editing) guestList = guestList.map((person) => person.id === complete.id ? complete : person);
       else guestList.push(complete);
       persistGuests();
