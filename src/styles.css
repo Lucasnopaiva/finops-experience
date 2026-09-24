@@ -167,7 +167,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 
 /* Networking mobile */
 .mobile-screen { width: 100%; min-height: 100dvh; color: var(--text); background: var(--ink); }
-.mobile-header { display: flex; align-items: center; justify-content: space-between; height: 76px; padding: max(17px, env(safe-area-inset-top)) 20px 10px; color: var(--text); background: var(--ink); border-bottom: 1px solid var(--line-soft); }
+.mobile-header { position: sticky; z-index: 10; top: 0; display: flex; align-items: center; justify-content: space-between; height: 76px; padding: max(17px, env(safe-area-inset-top)) 20px 10px; color: var(--text); background: rgba(13,10,8,.96); border-bottom: 1px solid var(--line-soft); backdrop-filter: blur(16px); }
 .mobile-event { color: var(--text-soft); font-size: 11px; font-weight: 700; letter-spacing: .16em; }
 .mobile-secret-trigger { padding: 12px 0 12px 12px; background: transparent; user-select: none; -webkit-user-select: none; }
 .event-dot { width: 7px; height: 7px; }
@@ -176,7 +176,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .network-hero h1 { margin: 17px 0 16px; color: var(--text); font-family: var(--serif); font-size: clamp(50px, 14vw, 70px); font-weight: 400; line-height: .82; letter-spacing: -.035em; }
 .network-hero h1 em { color: var(--orange); font-weight: 400; }
 .network-hero p { max-width: 370px; margin: 0; color: var(--text-soft); font-size: 14px; line-height: 1.55; }
-.network-sticky { position: sticky; z-index: 5; top: 0; padding: 16px 16px 12px; background: rgba(13,10,8,.94); backdrop-filter: blur(18px); }
+.network-sticky { position: sticky; z-index: 5; top: 76px; padding: 16px 16px 12px; background: rgba(13,10,8,.94); backdrop-filter: blur(18px); }
 .search-field--mobile { min-height: 56px; padding: 0 16px; border: 1px solid var(--line); border-radius: 2px; box-shadow: inset 3px 0 0 var(--orange); }
 .search-field--mobile:focus-within { border-color: var(--orange); }
 .result-meta { display: flex; align-items: center; justify-content: space-between; padding: 17px 3px 3px; font-size: 12px; }
@@ -201,21 +201,22 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .empty-state--mobile { grid-column: 1 / -1; min-height: 250px; }
 
 /* Mobile profile */
-.profile-hero { position: relative; padding-bottom: 38px; color: var(--text); background: var(--ink); }
+.profile-hero { position: relative; padding-bottom: 30px; color: var(--text); background: var(--ink); }
 .mobile-back { display: grid; width: 42px; height: 42px; place-items: center; color: var(--text); background: var(--surface-2); border-radius: 50%; }
-.profile-photo { position: relative; width: calc(100% - 40px); height: min(96vw, 470px); margin: 8px auto 0; overflow: hidden; background: var(--surface-2); }
+.profile-photo { position: relative; width: min(68vw, 280px); aspect-ratio: 4 / 5; margin: 24px 20px 0; overflow: hidden; background: var(--surface-2); border-radius: 12px; }
 .profile-photo::after { content: ''; position: absolute; inset: 50% 0 0; background: linear-gradient(transparent, rgba(13,10,8,.86)); }
 .profile-photo > img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.63) contrast(1.04); }
 .profile-photo > span { position: absolute; z-index: 2; right: 17px; bottom: 17px; }
-.profile-heading { padding: 28px 20px 0; }
-.profile-heading .eyebrow { font-size: 9px; }
-.profile-heading h1 { margin: 13px 0 10px; color: var(--text); font-family: var(--serif); font-size: clamp(50px, 14vw, 70px); font-weight: 400; line-height: .88; letter-spacing: -.035em; }
+.profile-heading { padding: 24px 20px 0; }
+.profile-heading h1 { margin: 0 0 12px; color: var(--orange); font-family: var(--serif); font-size: clamp(50px, 14vw, 70px); font-weight: 400; line-height: .88; letter-spacing: -.035em; }
 .profile-heading p { margin: 0; color: var(--text-soft); font-size: 14px; line-height: 1.5; }
 .profile-heading p strong { color: var(--text); }
 .profile-body { padding: 20px 16px 44px; background: #110d0b; border-top: 1px solid var(--line-soft); }
-.linkedin-button { display: grid; grid-template-columns: 25px 1fr 21px; align-items: center; gap: 12px; min-height: 64px; padding: 0 18px; color: white; text-decoration: none; background: #0a66c2; border-radius: 2px; font-size: 14px; font-weight: 700; }
-.linkedin-button:active { background: #0858a8; }
-.linkedin-button--unavailable { color: var(--text-soft); background: var(--surface-2); border: 1px solid var(--line); }
+.linkedin-icon { display: inline-grid; width: 52px; height: 52px; place-items: center; color: #fff; text-decoration: none; background: #0a66c2; border-radius: 10px; }
+.linkedin-icon svg { width: 29px; height: 29px; stroke-width: 2.5; }
+.linkedin-icon:active { background: #0858a8; }
+.linkedin-toast { position: fixed; z-index: 20; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; width: max-content; max-width: calc(100vw - 32px); padding: 13px 17px; color: var(--text); text-align: center; background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--orange); border-radius: 6px; box-shadow: 0 12px 32px rgba(0,0,0,.38); font-size: 14px; transform: translateX(-50%); }
+.linkedin-toast[hidden] { display: none; }
 .company-block, .colleagues-block { padding-top: 34px; }
 .section-kicker { color: var(--text-faint); font-size: 9px; font-weight: 700; letter-spacing: .17em; }
 .company-feature { display: flex; align-items: center; gap: 17px; margin-top: 14px; padding: 20px; background: var(--surface); border: 1px solid var(--line-soft); }
@@ -265,13 +266,12 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
   .network-sticky { padding: 18px 48px 16px; }
   .network-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 0 48px 58px; }
   .profile-hero { display: grid; grid-template-columns: minmax(300px, 42%) minmax(0, 1fr); align-items: center; gap: 0 40px; padding-bottom: 44px; }
-  .profile-hero .mobile-header { grid-column: 1 / -1; }
-  .profile-photo { width: calc(100% - 48px); height: min(43vw, 510px); margin: 28px 0 0 48px; }
+  .profile-photo { width: min(calc(100% - 48px), 350px); margin: 28px 0 0 48px; }
   .profile-heading { padding: 28px 48px 0 0; }
   .profile-heading h1 { font-size: clamp(70px, 7vw, 106px); }
   .profile-heading p { font-size: 18px; }
   .profile-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 36px; padding: 28px 48px 70px; }
-  .linkedin-button { grid-column: 1 / -1; }
+  .linkedin-icon { grid-column: 1 / -1; }
 }
 
 /* Notebook and other landscape displays */

@@ -44,6 +44,7 @@ let keyboardTarget = null;
 let keyboardShift = false;
 let raffleTimer = null;
 let raffleFinishTimer = null;
+let linkedinToastTimer = null;
 
 const icons = {
   arrow: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
@@ -492,14 +493,24 @@ function renderProfile(id) {
   const company = personCompany(person);
   const colleagues = companyPeople(person);
   root.innerHTML = `<main class="mobile-screen profile-screen">
-    <section class="profile-hero">${mobileHeader({ back: true })}<div class="profile-photo">${personImage(person)}<span>${companyLogo(person, 'lg')}</span></div><div class="profile-heading"><span class="eyebrow">PERFIL DO PARTICIPANTE</span><h1>${escapeHtml(person.name)}</h1><p>${escapeHtml(person.role)}<br/><strong>${escapeHtml(company.name)}</strong></p></div></section>
+    ${mobileHeader({ back: true })}
+    <section class="profile-hero"><div class="profile-photo">${personImage(person)}<span>${companyLogo(person, 'lg')}</span></div><div class="profile-heading"><h1>${escapeHtml(person.name)}</h1><p>${escapeHtml(person.role)}<br/><strong>${escapeHtml(company.name)}</strong></p></div></section>
     <section class="profile-body">
-      ${linkedInUrl(person) ? `<a class="linkedin-button" href="${escapeHtml(linkedInUrl(person))}" target="_blank" rel="noopener noreferrer">${icons.linkedin}<span>Conectar no LinkedIn</span>${icons.arrow}</a>` : `<div class="linkedin-button linkedin-button--unavailable">${icons.linkedin}<span>LinkedIn não cadastrado</span></div>`}
+      ${linkedInUrl(person) ? `<a class="linkedin-icon" href="${escapeHtml(linkedInUrl(person))}" target="_blank" rel="noopener noreferrer" aria-label="Abrir LinkedIn de ${escapeHtml(person.name)}">${icons.linkedin}</a>` : `<button class="linkedin-icon" type="button" data-action="linkedin-unavailable" aria-label="LinkedIn não cadastrado para ${escapeHtml(person.name)}">${icons.linkedin}</button>`}
       <div class="company-block"><span class="section-kicker">EMPRESA</span><div class="company-feature">${company.photo ? `<img class="company-feature-photo" src="${escapeHtml(company.photo)}" alt="Foto da empresa ${escapeHtml(company.name)}" />` : companyLogo(person, 'xl')}<div><strong>${escapeHtml(company.name)}</strong><span>${company.description ? escapeHtml(company.description) : company.name === '-' ? 'Não informada' : 'Empresa deste participante'}</span></div></div></div>
       ${company.name !== '-' ? `<div class="colleagues-block"><div class="section-title"><div><span class="section-kicker">MAIS CONEXÕES</span><h2>Também da ${escapeHtml(company.name)}</h2></div><strong>${colleagues.length}</strong></div><div class="colleague-list">${colleagues.length ? colleagues.map(participantCard).join('') : '<p class="solo-company">Você encontrou o único participante desta empresa por aqui.</p>'}</div></div>` : ''}
     </section>
+    <div id="linkedin-toast" class="linkedin-toast" role="status" aria-live="polite" hidden>Nenhum link do LinkedIn cadastrado.</div>
     ${state.networkAdminOpen ? networkAdminOverlay() : ''}
   </main>`;
+}
+
+function showLinkedInUnavailable() {
+  const toast = document.querySelector('#linkedin-toast');
+  if (!toast) return;
+  window.clearTimeout(linkedinToastTimer);
+  toast.hidden = false;
+  linkedinToastTimer = window.setTimeout(() => { toast.hidden = true; }, 3000);
 }
 
 function networkAdminOverlay() {
@@ -814,6 +825,7 @@ document.addEventListener('click', (eventTarget) => {
     if (action === 'close-raffle') { stopRaffle(); state.raffleOpen = false; state.raffleWinner = null; renderTotemHome(); }
     if (action === 'run-raffle') runRaffle();
     if (action === 'mobile-back') navigate(networkListRoute());
+    if (action === 'linkedin-unavailable') showLinkedInUnavailable();
     if (action === 'network-admin-trigger') handleNetworkAdminTrigger();
     if (action === 'network-admin-close') { state.networkAdminOpen = false; state.networkAdminPassword = ''; renderNetworkCurrent(); }
     if (action === 'network-admin-list') { state.networkAdminView = 'list'; state.networkAdminError = ''; renderNetworkCurrent(); }
