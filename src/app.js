@@ -26,6 +26,7 @@ const state = {
   adminTapCount: 0,
   adminLastTap: 0,
   confirmDialog: null,
+  quickAddOpen: false,
   networkAdminOpen: false,
   networkAdminAuthenticated: false,
   networkAdminView: 'login',
@@ -50,7 +51,7 @@ const icons = {
   arrow: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   back: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>',
   search: '<svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>',
-  linkedin: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 9v8M7 6.5v.01M11 17v-4.4c0-2.9 5-3.1 5 0V17M11 9v8"/></svg>',
+  linkedin: '<svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="5.3" cy="5.5" r="1.75"/><path d="M3.6 9h3.45v11.3H3.6zM9.45 9h3.32v1.55c.47-.87 1.62-1.82 3.33-1.82 3.57 0 4.3 2.3 4.3 5.32v6.25h-3.47v-5.55c0-1.32-.02-3.02-1.86-3.02-1.86 0-2.15 1.45-2.15 2.92v5.65H9.45z"/></svg>',
   home: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 11 8-7 8 7v9h-6v-6h-4v6H4z"/></svg>',
   trophy: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 4h8v4c0 4-1.8 6-4 6s-4-2-4-6zM8 6H4v2c0 2 1.4 3.5 4 3.5M16 6h4v2c0 2-1.4 3.5-4 3.5M12 14v4M8 20h8"/></svg>',
   check: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>',
@@ -271,20 +272,41 @@ function renderAttendance() {
     </section>
     ${state.adminOpen ? adminOverlay() : ''}
     ${state.confirmDialog ? confirmationOverlay() : ''}
+    ${state.quickAddOpen ? quickAddOverlay() : ''}
   </main>`;
 }
 
 function attendanceRows(query = '') {
   const normalized = query.trim().toLocaleLowerCase('pt-BR');
   const filtered = guestList.filter((person) => person.name.toLocaleLowerCase('pt-BR').includes(normalized));
-  if (!filtered.length) return `<div class="empty-state"><strong>Nenhum nome encontrado.</strong><span>Confira a busca ou peça ajuda à equipe do evento.</span></div>`;
-  return filtered.map((person, index) => `<button class="attendance-row" data-person="${person.id}" style="--delay:${index * 28}ms">
+  const rows = filtered.length ? filtered.map((person, index) => `<button class="attendance-row" data-person="${person.id}" style="--delay:${index * 28}ms">
     <span class="row-number">${String(index + 1).padStart(2, '0')}</span>
     ${personImage(person, 'row-avatar')}
     <span class="row-person"><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(person.role)} · ${escapeHtml(personCompany(person).name)}</small></span>
     ${person.present ? `<span class="present-badge">${icons.check} Presente</span>` : '<span class="tap-label">Sou eu</span>'}
     <span class="row-arrow">${icons.arrow}</span>
-  </button>`).join('');
+  </button>`).join('') : `<div class="empty-state"><strong>Nenhum nome encontrado.</strong><span>Confira a busca ou adicione o convidado à lista.</span></div>`;
+  return `${rows}<button class="quick-add-row" type="button" data-action="open-quick-add">${icons.plus}<span>Adicionar convidado à lista</span>${icons.arrow}</button>`;
+}
+
+function quickAddOverlay() {
+  return `<div class="modal-backdrop quick-add-backdrop" role="dialog" aria-modal="true" aria-labelledby="quick-add-title">
+    <section class="quick-add-card">
+      <button class="icon-close" type="button" data-action="close-quick-add" aria-label="Fechar cadastro rápido">×</button>
+      <span class="modal-kicker">CADASTRO RÁPIDO</span>
+      <h2 id="quick-add-title">Adicionar convidado</h2>
+      <form id="quick-add-form">
+        <label>Nome<input data-keyboard name="name" inputmode="none" autocomplete="off" maxlength="120" required placeholder="Nome completo" /></label>
+        <fieldset class="quick-company-choice"><legend>Possui empresa?</legend>
+          <label><input type="radio" name="hasCompany" value="true" /> Sim</label>
+          <label><input type="radio" name="hasCompany" value="false" checked /> Não</label>
+        </fieldset>
+        <label id="quick-company-field" hidden>Empresa<input data-keyboard name="company" inputmode="none" autocomplete="off" maxlength="120" placeholder="Nome da empresa" /></label>
+        <span id="quick-add-error" class="form-error" role="alert"></span>
+        <button class="primary-button" type="submit">Adicionar à lista ${icons.arrow}</button>
+      </form>
+    </section>
+  </div>`;
 }
 
 function confirmationOverlay() {
@@ -382,10 +404,10 @@ function adminGuestForm() {
     </div>
     <form id="guest-form" class="guest-form">
       <div class="guest-fields">
-        <label>Nome<input data-keyboard name="name" inputmode="none" autocomplete="off" required placeholder="Nome completo" value="${escapeHtml(person?.name || '')}" /></label>
-        <label>Cargo<input data-keyboard name="role" inputmode="none" autocomplete="off" required placeholder="Cargo ou função" value="${escapeHtml(person?.role || '')}" /></label>
-        <label>LinkedIn <small>opcional</small><input data-keyboard name="linkedin" type="url" inputmode="none" autocomplete="off" placeholder="linkedin.com/in/seu-perfil" value="${escapeHtml(person?.linkedin || '')}" /></label>
-        <label>Empresa <small>opcional</small><input data-keyboard name="company" inputmode="none" autocomplete="off" placeholder="Será exibido “-” se ficar vazio" value="${escapeHtml(company === '-' ? '' : company)}" /></label>
+        <label>Nome<input name="name" autocomplete="off" required placeholder="Nome completo" value="${escapeHtml(person?.name || '')}" /></label>
+        <label>Cargo<input name="role" autocomplete="off" required placeholder="Cargo ou função" value="${escapeHtml(person?.role || '')}" /></label>
+        <label>LinkedIn <small>opcional</small><input name="linkedin" type="url" autocomplete="off" placeholder="linkedin.com/in/seu-perfil" value="${escapeHtml(person?.linkedin || '')}" /></label>
+        <label>Empresa <small>opcional</small><input name="company" autocomplete="off" placeholder="Será exibido “-” se ficar vazio" value="${escapeHtml(company === '-' ? '' : company)}" /></label>
       </div>
       <div class="photo-field">
         <span>Foto</span>
@@ -825,6 +847,8 @@ document.addEventListener('click', (eventTarget) => {
     if (action === 'close-raffle') { stopRaffle(); state.raffleOpen = false; state.raffleWinner = null; renderTotemHome(); }
     if (action === 'run-raffle') runRaffle();
     if (action === 'mobile-back') navigate(networkListRoute());
+    if (action === 'open-quick-add') { state.quickAddOpen = true; renderAttendance(); }
+    if (action === 'close-quick-add') { state.quickAddOpen = false; hideKeyboard(); renderAttendance(); }
     if (action === 'linkedin-unavailable') showLinkedInUnavailable();
     if (action === 'network-admin-trigger') handleNetworkAdminTrigger();
     if (action === 'network-admin-close') { state.networkAdminOpen = false; state.networkAdminPassword = ''; renderNetworkCurrent(); }
@@ -927,6 +951,16 @@ document.addEventListener('input', (inputEvent) => {
 });
 
 document.addEventListener('change', async (changeEvent) => {
+  if (changeEvent.target.matches('input[name="hasCompany"]')) {
+    const field = document.querySelector('#quick-company-field');
+    const input = field?.querySelector('input');
+    if (!field || !input) return;
+    const hasCompany = changeEvent.target.value === 'true';
+    field.hidden = !hasCompany;
+    input.required = hasCompany;
+    if (!hasCompany) { input.value = ''; if (keyboardTarget === input) hideKeyboard(); }
+    return;
+  }
   if (!changeEvent.target.matches('#guest-photo, #company-photo')) return;
   const file = changeEvent.target.files?.[0];
   if (!file) return;
@@ -944,6 +978,31 @@ document.addEventListener('change', async (changeEvent) => {
 });
 
 document.addEventListener('submit', (submitEvent) => {
+  if (submitEvent.target.matches('#quick-add-form')) {
+    submitEvent.preventDefault();
+    const form = submitEvent.target;
+    const values = new FormData(form);
+    const name = String(values.get('name') || '').trim();
+    const hasCompany = values.get('hasCompany') === 'true';
+    const company = hasCompany ? String(values.get('company') || '').trim() : '';
+    const errorField = form.querySelector('#quick-add-error');
+    if (!name || (hasCompany && !company)) { errorField.textContent = 'Informe o nome e, se aplicável, a empresa.'; return; }
+    const submitButton = form.querySelector('[type="submit"]');
+    submitButton.disabled = true;
+    fetch('/api/quick-guests', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, hasCompany, company }) })
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Não foi possível adicionar o convidado. Tente novamente.');
+        guestList.push(result);
+        persistGuests();
+        state.quickAddOpen = false;
+        state.totemQuery = result.name;
+        renderAttendance();
+        void syncCompanies();
+      })
+      .catch((error) => { errorField.textContent = error.message; submitButton.disabled = false; });
+    return;
+  }
   if (submitEvent.target.matches('#network-admin-login')) {
     submitEvent.preventDefault();
     const password = String(new FormData(submitEvent.target).get('password') || '');

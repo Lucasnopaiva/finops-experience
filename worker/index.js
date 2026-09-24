@@ -59,6 +59,7 @@ function guestFromRow(row) {
 
 async function imageUrl(photo, env, requestUrl) {
   if (typeof photo !== 'string') return null;
+  if (photo === '/guest-avatar.svg') return photo;
   if (/^https:\/\//i.test(photo)) return photo.slice(0, 1000);
   if (/^\/api\/photos\/[a-f0-9-]{36}\.jpg$/.test(photo)) return photo;
   const match = photo.match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/);
@@ -69,26 +70,27 @@ async function imageUrl(photo, env, requestUrl) {
   return new URL(`/api/photos/${key}`, requestUrl).pathname;
 }
 
-async function saveGuest(request, env, id = null) {
-  if (!hasAdminPassword(request, env)) return json({ error: 'Acesso não autorizado.' }, 401);
+async function saveGuest(request, env, id = null, quick = false) {
+  if (!quick && !hasAdminPassword(request, env)) return json({ error: 'Acesso não autorizado.' }, 401);
   const length = Number(request.headers.get('content-length') || '0');
-  if (length > 1_200_000) return json({ error: 'Foto grande demais.' }, 413);
+  if (length > (quick ? 2000 : 1_200_000)) return json({ error: 'Requisição grande demais.' }, 413);
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Requisição inválida.' }, 400); }
-  const guestId = id || String(body.id || '');
+  const guestId = quick ? `rapido-${crypto.randomUUID()}` : id || String(body.id || '');
   const name = String(body.name || '').trim();
-  const role = String(body.role || '').trim();
-  const company = String(body.company || '').trim();
+  const role = quick ? 'Convidado(a)' : String(body.role || '').trim();
+  const company = quick && body.hasCompany === false ? '' : String(body.company || '').trim();
+  if (quick && (typeof body.hasCompany !== 'boolean' || (body.hasCompany && !company))) return json({ error: 'Informe se o convidado possui empresa.' }, 400);
   if (!/^[a-z0-9][a-z0-9-]{1,100}$/i.test(guestId) || !name || !role || name.length > 120 || role.length > 120 || company.length > 120) {
     return json({ error: 'Confira o nome, cargo e empresa.' }, 400);
   }
   let photo;
-  try { photo = await imageUrl(body.photo, env, request.url); }
+  try { photo = await imageUrl(quick ? '/guest-avatar.svg' : body.photo, env, request.url); }
   catch { return json({ error: 'Não foi possível salvar a foto.' }, 503); }
   if (!photo) return json({ error: 'Envie uma foto válida.' }, 400);
   let companyId = body.companyId && !Object.hasOwn(body, 'company') ? String(body.companyId).slice(0, 100) : null;
-  const companyValue = Object.hasOwn(body, 'company') ? company : null;
-  const present = body.present ? '1' : '0';
+  const companyValue = quick || Object.hasOwn(body, 'company') ? company : null;
+  const present = quick ? '0' : body.present ? '1' : '0';
   try {
     if (companyValue) {
       await ensureCompanies(env);
@@ -140,6 +142,10 @@ async function api(request, env, url) {
       const result = await env.DB.prepare('SELECT id, name, description, photo FROM company_profiles ORDER BY name COLLATE NOCASE').all();
       return json(result.results || []);
     } catch { return json({ error: 'Empresas indisponíveis no momento.' }, 503); }
+  }
+  if (url.pathname === '/api/quick-guests' && request.method === 'POST') {
+    try { await ensureGuests(env); return saveGuest(request, env, null, true); }
+    catch { return json({ error: 'Não foi possível adicionar o convidado.' }, 503); }
   }
   const companyMatch = url.pathname.match(/^\/api\/admin\/companies\/([^/]+)$/);
   if (companyMatch && request.method === 'PUT') {
