@@ -4,7 +4,6 @@ import { companies, event, participants as initialParticipants } from './data.js
 
 const root = document.querySelector('#app');
 const GUESTS_STORAGE_KEY = 'finops-experience-guests-v1';
-const BASE_GUEST_COUNT = initialParticipants.length;
 const NETWORK_PATH = '/conexoes/';
 
 const state = {
@@ -172,7 +171,7 @@ function presentCount() {
 }
 
 function confirmedCount() {
-  return Math.max(0, event.totalConfirmed + guestList.length - BASE_GUEST_COUNT);
+  return guestList.length;
 }
 
 function totemHeader(step, title, { backRoute = null } = {}) {
@@ -199,7 +198,6 @@ function renderTotemHome() {
       <p class="event-intro">Estratégia financeira, tecnologia<br/>e conexões em um só encontro.</p>
     </section>
     <div class="checkin-prompt" aria-hidden="true">
-      <span class="checkin-index">01</span>
       <span class="checkin-copy"><small>CHECK-IN</small><strong>Toque em qualquer lugar<br/>para fazer o Check-in</strong></span>
     </div>
     <footer class="home-footer">
@@ -211,16 +209,16 @@ function renderTotemHome() {
 
 function raffleModal() {
   const eligible = guestList.filter((person) => person.present);
-  const display = state.raffleWinner || eligible[0];
+  const display = state.raffleWinner || (state.raffleRunning ? eligible[0] : null);
   return `<div class="modal-backdrop" data-action="noop" role="dialog" aria-modal="true" aria-labelledby="raffle-title">
     <section class="raffle-modal">
       <button class="icon-close" data-action="close-raffle" aria-label="Fechar sorteio">×</button>
-      <span class="modal-kicker">SORTEIO · ${eligible.length} PARTICIPANTES</span>
+      <span class="modal-kicker">SORTEIO · ${eligible.length} ${eligible.length === 1 ? 'PRESENTE ELEGÍVEL' : 'PRESENTES ELEGÍVEIS'}</span>
       <h2 id="raffle-title">Quem leva<br/><em>essa experiência?</em></h2>
-      ${display ? `<div class="raffle-stage ${state.raffleRunning ? 'is-running' : ''}">
+      ${eligible.length ? `${display || state.raffleRunning ? `<div class="raffle-stage ${state.raffleRunning ? 'is-running' : ''}">
         <div class="winner-avatar">${personImage(display)}</div>
-        <div><small>${state.raffleWinner ? 'TEMOS UM VENCEDOR' : 'PRONTO PARA COMEÇAR'}</small><strong id="raffle-name">${escapeHtml(display.name)}</strong><span>${escapeHtml(personCompany(display).name)}</span></div>
-      </div>
+        <div><small>${state.raffleWinner ? 'TEMOS UM VENCEDOR' : 'SORTEANDO ENTRE OS PRESENTES'}</small><strong id="raffle-name">${escapeHtml(display.name)}</strong><span>${escapeHtml(personCompany(display).name)}</span></div>
+      </div>` : `<div class="raffle-stage raffle-stage--ready"><div class="raffle-ready-icon">${icons.trophy}</div><div><small>PRONTO PARA COMEÇAR</small><strong>Nenhum nome revelado</strong><span>Toque no botão abaixo para realizar o sorteio.</span></div></div>`}
       <button class="primary-button primary-button--orange" data-action="run-raffle" ${state.raffleRunning ? 'disabled' : ''}>${state.raffleRunning ? 'Sorteando…' : state.raffleWinner ? 'Sortear novamente' : 'Iniciar sorteio'} ${icons.arrow}</button>`
       : '<div class="empty-raffle">Nenhum convidado presente para o sorteio.</div>'}
     </section>
@@ -636,7 +634,7 @@ function renderKeyboard() {
   keyboard.className = 'virtual-keyboard';
   keyboard.setAttribute('role', 'group');
   keyboard.setAttribute('aria-label', 'Teclado virtual');
-  keyboard.innerHTML = `<div class="keyboard-top"><span>TECLADO</span><button type="button" data-keyboard-command="close">Fechar ×</button></div>
+  keyboard.innerHTML = `<div class="keyboard-top"><span>TECLADO</span><button type="button" data-keyboard-command="close" aria-label="Fechar teclado">×</button></div>
     ${rows.map((row) => `<div class="keyboard-row">${row.map((key) => `<button type="button" data-keyboard-key="${key}">${keyboardShift && /[a-záéóç]/.test(key) ? key.toUpperCase() : key}</button>`).join('')}</div>`).join('')}
     <div class="keyboard-row keyboard-controls">
       <button type="button" data-keyboard-command="shift" class="keyboard-shift ${keyboardShift ? 'is-active' : ''}">⇧ Maiúscula</button>
@@ -705,6 +703,12 @@ function resizePhoto(file) {
 }
 
 document.addEventListener('click', (eventTarget) => {
+  const openKeyboard = document.querySelector('#virtual-keyboard');
+  if (openKeyboard && !eventTarget.target.closest('#virtual-keyboard') && eventTarget.target !== keyboardTarget) hideKeyboard();
+
+  const keyboardInput = eventTarget.target.closest('input[data-keyboard]');
+  if (keyboardInput) showKeyboard(keyboardInput);
+
   const keyboardButton = eventTarget.target.closest('[data-keyboard-key], [data-keyboard-command]');
   if (keyboardButton) return virtualKeyPress(keyboardButton);
 
@@ -715,8 +719,8 @@ document.addEventListener('click', (eventTarget) => {
   if (actionButton) {
     const action = actionButton.dataset.action;
     if (action === 'start-checkin') navigate('#/totem/presenca');
-    if (action === 'open-raffle') { state.raffleOpen = true; renderTotemHome(); }
-    if (action === 'close-raffle') { state.raffleOpen = false; state.raffleRunning = false; renderTotemHome(); }
+    if (action === 'open-raffle') { state.raffleOpen = true; state.raffleWinner = null; renderTotemHome(); }
+    if (action === 'close-raffle') { state.raffleOpen = false; state.raffleRunning = false; state.raffleWinner = null; renderTotemHome(); }
     if (action === 'run-raffle') runRaffle();
     if (action === 'mobile-back') navigate(networkListRoute());
     if (action === 'network-admin-trigger') handleNetworkAdminTrigger();

@@ -59,7 +59,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .hero-copy h1 span { color: var(--text); }
 .hero-copy h1 em { color: var(--orange); font-weight: 400; transform: translateX(.38em); }
 .event-intro { margin: 0; color: var(--text-soft); font-size: clamp(14px, 1.5vw, 20px); line-height: 1.55; }
-.checkin-prompt { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: clamp(18px, 3vw, 38px); width: 100%; padding: clamp(22px, 3.2vh, 44px) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.checkin-prompt { display: grid; grid-template-columns: 1fr; align-items: center; width: 100%; padding: clamp(22px, 3.2vh, 44px) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .checkin-index { align-self: start; color: var(--text-faint); font-size: 12px; font-weight: 700; }
 .checkin-copy { display: flex; flex-direction: column; gap: 8px; }
 .checkin-copy small { color: var(--orange); font-size: clamp(11px, 1vw, 14px); font-weight: 700; letter-spacing: .2em; }
@@ -161,6 +161,9 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .raffle-stage strong { overflow: hidden; color: var(--text); font-family: var(--serif); font-size: clamp(30px, 4.5vw, 50px); font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .raffle-stage span { color: var(--text-soft); }
 .raffle-stage.is-running { animation: rafflePulse .22s ease infinite alternate; }
+.raffle-stage--ready { border-style: dashed; }
+.raffle-ready-icon { display: grid; width: 98px; aspect-ratio: 1; flex: none; place-items: center; color: var(--orange); background: rgba(255,90,31,.06); border: 1px solid rgba(255,90,31,.3); border-radius: 50%; }
+.raffle-ready-icon svg { width: 36px; height: 36px; }
 
 /* Networking mobile */
 .mobile-screen { width: 100%; min-height: 100dvh; color: var(--text); background: var(--ink); }
@@ -330,7 +333,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
   .hero-copy h1 { font-size: clamp(68px, 22vw, 100px); }
   .hero-copy h1 em { transform: none; }
   .event-intro { font-size: 13px; }
-  .checkin-prompt { grid-template-columns: 1fr auto; }
+  .checkin-prompt { grid-template-columns: 1fr; }
   .checkin-index { display: none; }
   .checkin-copy strong { font-size: 28px; }
   .raffle-button { width: 100%; }
@@ -368,7 +371,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .admin-modal .icon-close { z-index: 3; }
 .admin-modal h2 { margin: 10px 0 4px; color: var(--text); font-family: var(--serif); font-size: clamp(42px, 5.5vw, 68px); font-weight: 400; line-height: .9; letter-spacing: -.025em; }
 .admin-modal h2 em { color: var(--orange); font-weight: 400; }
-.admin-modal--login { width: min(90vw, 560px); }
+.admin-modal--login { width: min(90vw, 560px); overflow-y: auto; }
 .admin-login { display: flex; align-items: stretch; flex-direction: column; text-align: center; }
 .admin-lock { display: grid; width: 64px; height: 64px; margin: 0 auto 24px; place-items: center; color: var(--orange); background: rgba(255,90,31,.08); border: 1px solid rgba(255,90,31,.26); border-radius: 50%; }
 .admin-lock svg { width: 27px; height: 27px; }
@@ -426,7 +429,7 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .virtual-keyboard { position: fixed; z-index: 80; right: 0; bottom: 0; left: 0; display: grid; gap: 7px; padding: 12px max(18px, 5vw) max(14px, env(safe-area-inset-bottom)); background: rgba(13,10,8,.98); border-top: 1px solid var(--orange); box-shadow: 0 -24px 70px rgba(0,0,0,.55); backdrop-filter: blur(18px); }
 .keyboard-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
 .keyboard-top span { color: var(--text-faint); font-size: 10px; font-weight: 700; letter-spacing: .18em; }
-.keyboard-top button { padding: 7px 12px; color: var(--orange); background: transparent; font-size: 12px; }
+.keyboard-top button { display: grid; width: 38px; height: 38px; padding: 0; place-items: center; color: var(--orange); background: var(--surface-2); border: 1px solid var(--line); border-radius: 50%; font-size: 24px; line-height: 1; }
 .keyboard-row { display: flex; justify-content: center; gap: 6px; }
 .keyboard-row button { min-width: 0; height: clamp(42px, 5.2vh, 58px); flex: 1; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: 3px; font-size: clamp(14px, 1.45vw, 20px); font-weight: 600; }
 .keyboard-row button:active { color: var(--ink); background: var(--orange); }
@@ -436,6 +439,12 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .keyboard-controls .keyboard-shift.is-active { color: var(--ink); background: var(--orange); }
 .keyboard-open .admin-backdrop { align-items: start; padding-top: 2.5vh; padding-bottom: 41vh; }
 .keyboard-open .admin-modal { max-height: 55vh; }
+.keyboard-open .admin-modal--login { padding-top: clamp(22px, 3vh, 32px); padding-bottom: clamp(22px, 3vh, 32px); }
+.keyboard-open .admin-modal--login .admin-lock { width: 48px; height: 48px; margin-bottom: 12px; }
+.keyboard-open .admin-modal--login h2 { font-size: clamp(36px, 5vh, 50px); }
+.keyboard-open .admin-login > p { margin: 10px auto 14px; }
+.keyboard-open .admin-login input { min-height: 52px; }
+.keyboard-open .admin-login .primary-button { min-height: 52px; }
 
 @media (min-aspect-ratio: 1 / 1) and (min-width: 760px) {
   .totem-home .hero-copy { width: min(100%, 820px); padding-top: 2vh; }
