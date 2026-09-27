@@ -5,6 +5,7 @@ import { companies, event, participants as initialParticipants } from './data.js
 const root = document.querySelector('#app');
 const GUESTS_STORAGE_KEY = 'finops-experience-guests-v1';
 const NETWORK_PATH = '/conexoes/';
+const PUBLIC_NETWORK_ORIGIN = 'https://finops-experience-lucasnopaivas-projects.vercel.app';
 
 const state = {
   totemQuery: '',
@@ -452,7 +453,10 @@ function renderQr(id) {
   const person = findPerson(id) || guestList[0];
   if (!person) return navigate('#/totem/presenca');
   state.checkedInId = person.id;
-  const networkUrl = `${window.location.origin}${NETWORK_PATH}?from=${encodeURIComponent(person.id)}`;
+  // QR Codes must always use the public production alias. If the totem is
+  // opened from a protected preview URL, using window.location.origin would
+  // send guests to a Vercel login screen.
+  const networkUrl = `${PUBLIC_NETWORK_ORIGIN}${NETWORK_PATH}?from=${encodeURIComponent(person.id)}`;
   root.innerHTML = `<main class="totem-screen qr-screen">
     ${totemHeader('03', 'Conecte-se')}
     <section class="qr-content">
