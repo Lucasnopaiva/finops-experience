@@ -2,8 +2,8 @@
 import { companies as SEED_COMPANIES, participants as SEED_GUESTS } from '../src/data.js';
 const jsonHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: jsonHeaders });
+function json(data, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(data), { status, headers: { ...jsonHeaders, ...extraHeaders } });
 }
 
 function hasAdminPassword(request, env) {
@@ -119,14 +119,15 @@ export async function api(request, env, url) {
     const object = await env.BUCKET.get(photoMatch[1]);
     return object ? new Response(object.body, { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=3600' } }) : new Response('Foto não encontrada.', { status: 404 });
   }
-  if (!env.DB) return json({ error: 'Dados indisponíveis no momento.' }, 503);
   if (url.pathname === '/api/admin/verify' && request.method === 'POST') {
     let body;
     try { body = await request.json(); } catch { return json({ error: 'Requisição inválida.' }, 400); }
-    return Boolean(env.ADMIN_PASSWORD) && body.password === env.ADMIN_PASSWORD
-      ? new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } })
+    if (!env.ADMIN_PASSWORD) return json({ error: 'Senha de operação não configurada.' }, 503);
+    return body.password === env.ADMIN_PASSWORD
+      ? new Response(null, { status: 204, headers: { 'cache-control': 'no-store', 'x-data-mode': env.DB ? 'server' : 'local' } })
       : json({ error: 'Senha incorreta.' }, 401);
   }
+  if (!env.DB) return json({ error: 'Dados indisponíveis no momento.' }, 503, { 'x-data-mode': 'local' });
   if (url.pathname === '/api/linkedin' && request.method === 'GET') {
     try {
       const result = await env.DB.prepare('SELECT participant_id, url FROM linkedin_links').all();

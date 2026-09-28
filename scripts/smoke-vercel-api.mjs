@@ -15,6 +15,12 @@ async function request(path, options = {}) {
 
 assert.equal((await request('/api/admin/verify', { method: 'POST', body: JSON.stringify({ password: 'wrong' }) })).status, 401);
 assert.equal((await request('/api/admin/verify', { method: 'POST', body: JSON.stringify({ password: 'test-only' }) })).status, 204);
+const localUrl = new URL('https://example.test/api/admin/verify');
+const localResponse = await api(new Request(localUrl, { method: 'POST', body: JSON.stringify({ password: 'test-only' }) }), { DB: null, ADMIN_PASSWORD: 'test-only' }, localUrl);
+assert.equal(localResponse.status, 204);
+assert.equal(localResponse.headers.get('x-data-mode'), 'local');
+assert.equal((await api(new Request(localUrl, { method: 'POST', body: JSON.stringify({ password: 'wrong' }) }), { DB: null, ADMIN_PASSWORD: 'test-only' }, localUrl)).status, 401);
+assert.equal((await api(new Request(localUrl, { method: 'POST', body: JSON.stringify({ password: 'test-only' }) }), { DB: null }, localUrl)).status, 503);
 assert.equal((await (await request('/api/participants')).json()).length, 12);
 assert.equal((await (await request('/api/companies')).json()).length, 6);
 

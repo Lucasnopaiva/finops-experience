@@ -108,11 +108,11 @@ async function verifyAdminPassword(password) {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }),
     });
   } catch { /* Sem API: usa o modo local configurado para este projeto. */ }
-  if (response?.ok) { useLocalAdmin = false; return; }
+  if (response?.ok) { useLocalAdmin = response.headers.get('x-data-mode') === 'local'; return; }
   if (response?.status === 401) throw new Error('Senha incorreta. Tente novamente.');
   if (response && ![404, 503].includes(response.status)) throw new Error('Não foi possível validar a senha. Tente novamente.');
   if (LOCAL_ADMIN_PASSWORD && password === LOCAL_ADMIN_PASSWORD) { useLocalAdmin = true; return; }
-  throw new Error(LOCAL_ADMIN_PASSWORD ? 'Senha incorreta. Tente novamente.' : 'Senha local não configurada.');
+  throw new Error(response?.status === 503 && !LOCAL_ADMIN_PASSWORD ? 'A senha deste site ainda não foi configurada.' : LOCAL_ADMIN_PASSWORD ? 'Senha incorreta. Tente novamente.' : 'Não foi possível validar a senha.');
 }
 
 async function syncGuests() {
@@ -403,7 +403,7 @@ function adminLogin() {
     <h2>Gerenciar<br/><em>${state.adminSection === 'companies' ? 'empresas.' : 'convidados.'}</em></h2>
     <p>Digite a senha de operação do evento para continuar.</p>
     <form id="admin-login-form">
-      <label>Senha<input id="admin-password" data-keyboard type="password" name="password" inputmode="none" autocomplete="off" placeholder="Digite a senha" /></label>
+      <div class="password-control"><label for="admin-password">Senha</label><div class="password-field"><input id="admin-password" data-keyboard type="password" name="password" inputmode="none" autocomplete="off" placeholder="Digite a senha" required /><button type="button" data-action="toggle-password" data-target="admin-password" aria-controls="admin-password" aria-label="Mostrar senha" aria-pressed="false">Mostrar</button></div></div>
       ${state.adminError ? `<span class="form-error">${escapeHtml(state.adminError)}</span>` : ''}
       <button class="primary-button" type="submit">Entrar ${icons.arrow}</button>
     </form>
@@ -578,7 +578,7 @@ function networkAdminOverlay() {
         <span class="admin-lock">${icons.lock}</span><span class="modal-kicker">ACESSO RESTRITO</span>
         <h2>Links do<br/><em>LinkedIn.</em></h2>
         <p>Digite a senha de operação do evento.</p>
-        <form id="network-admin-login"><label>Senha<input name="password" type="password" required autocomplete="off" placeholder="Digite a senha" /></label>
+        <form id="network-admin-login"><div class="password-control"><label for="network-admin-password">Senha</label><div class="password-field"><input id="network-admin-password" name="password" type="password" required autocomplete="off" placeholder="Digite a senha" /><button type="button" data-action="toggle-password" data-target="network-admin-password" aria-controls="network-admin-password" aria-label="Mostrar senha" aria-pressed="false">Mostrar</button></div></div>
           ${state.networkAdminError ? `<span class="form-error">${escapeHtml(state.networkAdminError)}</span>` : ''}
           <button class="primary-button" type="submit">Entrar ${icons.arrow}</button></form>
       </section>
@@ -873,7 +873,7 @@ function resizePhoto(file) {
 
 document.addEventListener('click', (eventTarget) => {
   const openKeyboard = document.querySelector('#virtual-keyboard');
-  if (openKeyboard && !eventTarget.target.closest('#virtual-keyboard') && eventTarget.target !== keyboardTarget) hideKeyboard();
+  if (openKeyboard && !eventTarget.target.closest('#virtual-keyboard, [data-action="toggle-password"]') && eventTarget.target !== keyboardTarget) hideKeyboard();
 
   const keyboardInput = eventTarget.target.closest('input[data-keyboard], textarea[data-keyboard]');
   if (keyboardInput) showKeyboard(keyboardInput);
@@ -887,6 +887,16 @@ document.addEventListener('click', (eventTarget) => {
   const actionButton = eventTarget.target.closest('[data-action]');
   if (actionButton) {
     const action = actionButton.dataset.action;
+    if (action === 'toggle-password') {
+      const input = document.getElementById(actionButton.dataset.target);
+      if (!input) return;
+      const visible = input.type === 'password';
+      input.type = visible ? 'text' : 'password';
+      actionButton.textContent = visible ? 'Ocultar' : 'Mostrar';
+      actionButton.setAttribute('aria-label', visible ? 'Ocultar senha' : 'Mostrar senha');
+      actionButton.setAttribute('aria-pressed', String(visible));
+      return;
+    }
     if (action === 'start-checkin') navigate('#/totem/presenca');
     if (action === 'open-raffle') { state.raffleOpen = true; state.raffleWinner = null; renderTotemHome(); }
     if (action === 'close-raffle') { stopRaffle(); state.raffleOpen = false; state.raffleWinner = null; renderTotemHome(); }
@@ -1036,7 +1046,7 @@ document.addEventListener('submit', (submitEvent) => {
     submitButton.disabled = true;
     fetch('/api/quick-guests', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, hasCompany, company }) })
       .then(async (response) => {
-        if (response.status === 404) return { id: `rapido-${crypto.randomUUID()}`, name, role: 'Convidado(a)', company, photo: '/guest-avatar.svg', present: false };
+        if (response.status === 404 || response.status === 503 && response.headers.get('x-data-mode') === 'local') return { id: `rapido-${crypto.randomUUID()}`, name, role: 'Convidado(a)', company, photo: '/guest-avatar.svg', present: false };
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'Não foi possível adicionar o convidado. Tente novamente.');
         return result;
