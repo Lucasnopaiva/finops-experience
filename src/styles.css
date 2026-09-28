@@ -164,9 +164,6 @@ svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-wi
 .raffle-stage strong { overflow: hidden; color: var(--text); font-family: var(--serif); font-size: clamp(30px, 4.5vw, 50px); font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .raffle-stage span { color: var(--text-soft); }
 .raffle-stage.is-running { animation: rafflePulse .22s ease infinite alternate; }
-.raffle-stage--ready { border-style: dashed; }
-.raffle-ready-icon { display: grid; width: 98px; aspect-ratio: 1; flex: none; place-items: center; color: var(--orange); background: rgba(255,90,31,.06); border: 1px solid rgba(255,90,31,.3); border-radius: 50%; }
-.raffle-ready-icon svg { width: 36px; height: 36px; }
 
 /* Networking mobile */
 .mobile-screen { width: 100%; min-height: 100dvh; color: var(--text); background: var(--ink); }

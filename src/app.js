@@ -4,6 +4,8 @@ import { companies, event, participants as initialParticipants } from './data.js
 
 const root = document.querySelector('#app');
 const GUESTS_STORAGE_KEY = 'finops-experience-guests-v1';
+const COMPANIES_STORAGE_KEY = 'finops-experience-companies-v1';
+const LOCAL_ADMIN_PASSWORD = import.meta.env.VITE_LOCAL_ADMIN_PASSWORD || '';
 const NETWORK_PATH = '/conexoes/';
 const PUBLIC_NETWORK_ORIGIN = 'https://finops-experience-lucasnopaivas-projects.vercel.app';
 
@@ -41,7 +43,8 @@ const state = {
 };
 
 let guestList = loadGuests();
-let companyProfiles = Object.fromEntries(Object.entries(companies).map(([id, company]) => [id, { id, ...company, description: '', photo: '' }]));
+let companyProfiles = loadCompanies();
+let useLocalAdmin = false;
 let keyboardTarget = null;
 let keyboardShift = false;
 let raffleTimer = null;
@@ -81,6 +84,35 @@ function persistGuests() {
     state.adminError = 'Não foi possível salvar. Tente usar uma foto menor.';
     return false;
   }
+}
+
+function loadCompanies() {
+  const initial = Object.fromEntries(Object.entries(companies).map(([id, company]) => [id, { id, ...company, description: '', photo: '' }]));
+  try {
+    const saved = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY));
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) return { ...initial, ...saved };
+  } catch { /* Os dados iniciais continuam disponíveis. */ }
+  return initial;
+}
+
+function persistCompanies() {
+  try {
+    localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(companyProfiles));
+  } catch { state.adminError = 'Não foi possível salvar a empresa neste navegador.'; }
+}
+
+async function verifyAdminPassword(password) {
+  let response;
+  try {
+    response = await fetch('/api/admin/verify', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }),
+    });
+  } catch { /* Sem API: usa o modo local configurado para este projeto. */ }
+  if (response?.ok) { useLocalAdmin = false; return; }
+  if (response?.status === 401) throw new Error('Senha incorreta. Tente novamente.');
+  if (response && ![404, 503].includes(response.status)) throw new Error('Não foi possível validar a senha. Tente novamente.');
+  if (LOCAL_ADMIN_PASSWORD && password === LOCAL_ADMIN_PASSWORD) { useLocalAdmin = true; return; }
+  throw new Error(LOCAL_ADMIN_PASSWORD ? 'Senha incorreta. Tente novamente.' : 'Senha local não configurada.');
 }
 
 async function syncGuests() {
@@ -242,11 +274,11 @@ function raffleModal() {
     <section class="raffle-modal">
       <button class="icon-close" data-action="close-raffle" aria-label="Fechar sorteio">×</button>
       <span class="modal-kicker">SORTEIO · ${eligible.length} ${eligible.length === 1 ? 'PRESENTE ELEGÍVEL' : 'PRESENTES ELEGÍVEIS'}</span>
-      <h2 id="raffle-title">Quem leva<br/><em>essa experiência?</em></h2>
-      ${eligible.length ? `${display || state.raffleRunning ? `<div class="raffle-stage ${state.raffleRunning ? 'is-running' : ''}">
+      <h2 id="raffle-title">${state.raffleWinner ? 'O sorteado(a) foi:' : state.raffleRunning ? 'Sorteando<br/><em>entre os presentes...</em>' : 'Quem leva<br/><em>essa experiência?</em>'}</h2>
+      ${eligible.length ? `${display ? `<div class="raffle-stage ${state.raffleRunning ? 'is-running' : ''}" aria-live="${state.raffleRunning ? 'off' : 'polite'}">
         <div class="winner-avatar"><img id="raffle-avatar" src="${escapeHtml(display.photo)}" alt="Foto de ${escapeHtml(display.name)}" /></div>
-        <div><small>${state.raffleWinner ? 'TEMOS UM VENCEDOR' : 'SORTEANDO ENTRE OS PRESENTES'}</small><strong id="raffle-name">${escapeHtml(display.name)}</strong><span id="raffle-company">${escapeHtml(personCompany(display).name)}</span></div>
-      </div>` : `<div class="raffle-stage raffle-stage--ready"><div class="raffle-ready-icon">${icons.trophy}</div><div><small>PRONTO PARA COMEÇAR</small><strong>Nenhum nome revelado</strong><span>Toque no botão abaixo para realizar o sorteio.</span></div></div>`}
+        <div><small>${state.raffleWinner ? 'PESSOA SORTEADA' : 'NOMES EM SORTEIO'}</small><strong id="raffle-name">${escapeHtml(display.name)}</strong><span id="raffle-role">${escapeHtml(display.role)}</span><span id="raffle-company">${escapeHtml(personCompany(display).name)}</span></div>
+      </div>` : ''}
       <button class="primary-button primary-button--orange" data-action="run-raffle" ${state.raffleRunning ? 'disabled' : ''}>${state.raffleRunning ? 'Sorteando…' : state.raffleWinner ? 'Sortear novamente' : 'Iniciar sorteio'} ${icons.arrow}</button>`
       : '<div class="empty-raffle">Nenhum convidado presente para o sorteio.</div>'}
     </section>
@@ -298,11 +330,11 @@ function quickAddOverlay() {
       <h2 id="quick-add-title">Adicionar convidado</h2>
       <form id="quick-add-form">
         <label>Nome<input data-keyboard name="name" inputmode="none" autocomplete="off" maxlength="120" required placeholder="Nome completo" /></label>
-        <fieldset class="quick-company-choice"><legend>Possui empresa?</legend>
+        <fieldset class="quick-company-choice"><legend>Faz parte de uma empresa?</legend>
           <label><input type="radio" name="hasCompany" value="true" /> Sim</label>
           <label><input type="radio" name="hasCompany" value="false" checked /> Não</label>
         </fieldset>
-        <label id="quick-company-field" hidden>Empresa<input data-keyboard name="company" inputmode="none" autocomplete="off" maxlength="120" placeholder="Nome da empresa" /></label>
+        <label id="quick-company-field" hidden>Nome da empresa<input data-keyboard name="company" inputmode="none" autocomplete="off" maxlength="120" placeholder="Nome da empresa" /></label>
         <span id="quick-add-error" class="form-error" role="alert"></span>
         <button class="primary-button" type="submit">Adicionar à lista ${icons.arrow}</button>
       </form>
@@ -406,9 +438,8 @@ function adminGuestForm() {
     <form id="guest-form" class="guest-form">
       <div class="guest-fields">
         <label>Nome<input name="name" autocomplete="off" required placeholder="Nome completo" value="${escapeHtml(person?.name || '')}" /></label>
-        <label>Cargo<input name="role" autocomplete="off" required placeholder="Cargo ou função" value="${escapeHtml(person?.role || '')}" /></label>
         <label>LinkedIn <small>opcional</small><input name="linkedin" type="url" autocomplete="off" placeholder="linkedin.com/in/seu-perfil" value="${escapeHtml(person?.linkedin || '')}" /></label>
-        <label>Empresa <small>opcional</small><input name="company" autocomplete="off" placeholder="Será exibido “-” se ficar vazio" value="${escapeHtml(company === '-' ? '' : company)}" /></label>
+        <label>Empresa da qual faz parte <small>opcional</small><input name="company" autocomplete="off" placeholder="Deixe vazio se não fizer parte de uma empresa" value="${escapeHtml(company === '-' ? '' : company)}" /></label>
       </div>
       <div class="photo-field">
         <span>Foto</span>
@@ -618,6 +649,11 @@ function handleNetworkAdminTrigger() {
 }
 
 async function saveLinkedIn(id, url, password = state.networkAdminPassword) {
+  if (useLocalAdmin) {
+    const person = findPerson(id);
+    if (person) { person.linkedin = url; persistGuests(); }
+    return;
+  }
   const response = await fetch(`/api/linkedin/${encodeURIComponent(id)}`, {
     method: url ? 'PUT' : 'DELETE',
     headers: { 'content-type': 'application/json', 'x-admin-password': password },
@@ -629,6 +665,7 @@ async function saveLinkedIn(id, url, password = state.networkAdminPassword) {
 }
 
 async function saveGuestOnServer(person, editing) {
+  if (useLocalAdmin) return person;
   const path = editing ? `/api/admin/guests/${encodeURIComponent(person.id)}` : '/api/admin/guests';
   const response = await fetch(path, {
     method: editing ? 'PUT' : 'POST',
@@ -641,6 +678,7 @@ async function saveGuestOnServer(person, editing) {
 }
 
 async function deleteGuestOnServer(id) {
+  if (useLocalAdmin) return;
   const response = await fetch(`/api/admin/guests/${encodeURIComponent(id)}`, {
     method: 'DELETE', headers: { 'x-admin-password': state.adminPassword },
   });
@@ -649,6 +687,7 @@ async function deleteGuestOnServer(id) {
 }
 
 async function saveCompanyOnServer(company) {
+  if (useLocalAdmin) return company;
   const response = await fetch(`/api/admin/companies/${encodeURIComponent(company.id)}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json', 'x-admin-password': state.adminPassword },
@@ -712,8 +751,10 @@ function runRaffle() {
     const name = document.querySelector('#raffle-name');
     const avatar = document.querySelector('#raffle-avatar');
     const company = document.querySelector('#raffle-company');
+    const role = document.querySelector('#raffle-role');
     if (name) name.textContent = person.name;
     if (avatar) { avatar.src = person.photo; avatar.alt = `Foto de ${person.name}`; }
+    if (role) role.textContent = person.role;
     if (company) company.textContent = personCompany(person).name;
     ticks += 1;
   }, 110);
@@ -995,8 +1036,12 @@ document.addEventListener('submit', (submitEvent) => {
     submitButton.disabled = true;
     fetch('/api/quick-guests', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, hasCompany, company }) })
       .then(async (response) => {
+        if (response.status === 404) return { id: `rapido-${crypto.randomUUID()}`, name, role: 'Convidado(a)', company, photo: '/guest-avatar.svg', present: false };
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'Não foi possível adicionar o convidado. Tente novamente.');
+        return result;
+      })
+      .then((result) => {
         guestList.push(result);
         persistGuests();
         state.quickAddOpen = false;
@@ -1010,9 +1055,8 @@ document.addEventListener('submit', (submitEvent) => {
   if (submitEvent.target.matches('#network-admin-login')) {
     submitEvent.preventDefault();
     const password = String(new FormData(submitEvent.target).get('password') || '');
-    fetch('/api/admin/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) })
-      .then((response) => {
-        if (!response.ok) throw new Error(response.status === 401 ? 'Senha incorreta.' : 'Não foi possível validar a senha. Tente novamente.');
+    verifyAdminPassword(password)
+      .then(() => {
         state.networkAdminPassword = password;
         state.networkAdminAuthenticated = true;
         state.networkAdminView = 'list';
@@ -1039,10 +1083,9 @@ document.addEventListener('submit', (submitEvent) => {
   }
   if (submitEvent.target.matches('#admin-login-form')) {
     submitEvent.preventDefault();
-    const password = new FormData(submitEvent.target).get('password');
-    fetch('/api/admin/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) })
-      .then((response) => {
-        if (!response.ok) throw new Error(response.status === 401 ? 'Senha incorreta. Tente novamente.' : 'Não foi possível validar a senha. Tente novamente.');
+    const password = String(new FormData(submitEvent.target).get('password') || '');
+    verifyAdminPassword(password)
+      .then(() => {
         state.adminAuthenticated = true;
         state.adminPassword = String(password);
         state.adminView = state.adminSection === 'companies' ? 'companies' : 'list';
@@ -1064,6 +1107,7 @@ document.addEventListener('submit', (submitEvent) => {
     saveCompanyOnServer({ id, name, description, photo: state.adminCompanyPhoto || previous?.photo || '' })
       .then((saved) => {
         companyProfiles[id] = { ...previous, ...saved };
+        if (useLocalAdmin) persistCompanies();
         guestList = guestList.map((person) => person.companyId === id && Object.hasOwn(person, 'company') ? { ...person, company: saved.name } : person);
         persistGuests();
         state.adminCompanyPhoto = '';
@@ -1079,7 +1123,8 @@ document.addEventListener('submit', (submitEvent) => {
     submitEvent.preventDefault();
     const values = new FormData(submitEvent.target);
     const name = String(values.get('name') || '').trim();
-    const role = String(values.get('role') || '').trim();
+    const previous = state.adminEditingId ? findPerson(state.adminEditingId) : null;
+    const role = previous?.role || 'Convidado(a)';
     const rawLinkedIn = String(values.get('linkedin') || '').trim();
     const company = String(values.get('company') || '').trim();
     const linkedin = rawLinkedIn ? normalizeLinkedIn(rawLinkedIn) : '';
@@ -1090,12 +1135,11 @@ document.addEventListener('submit', (submitEvent) => {
       if (errorField) errorField.textContent = message;
       return;
     }
-    if (!name || !role || !state.adminPhoto) {
-      state.adminError = 'Preencha nome, cargo e foto para continuar.';
+    if (!name || !state.adminPhoto) {
+      state.adminError = 'Preencha nome e foto para continuar.';
       renderAttendance();
       return;
     }
-    const previous = state.adminEditingId ? findPerson(state.adminEditingId) : null;
     const idBase = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'convidado';
     const draft = {
       id: previous?.id || `${idBase}-${Date.now()}`,

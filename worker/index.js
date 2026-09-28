@@ -1,4 +1,5 @@
-// ASSETS is inserted by scripts/build-worker.mjs from the Vite output.
+// ASSETS is inserted by scripts/build-worker.mjs for the static Worker build.
+import { companies as SEED_COMPANIES, participants as SEED_GUESTS } from '../src/data.js';
 const jsonHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 
 function json(data, status = 200) {
@@ -63,7 +64,10 @@ async function imageUrl(photo, env, requestUrl) {
   if (/^https:\/\//i.test(photo)) return photo.slice(0, 1000);
   if (/^\/api\/photos\/[a-f0-9-]{36}\.jpg$/.test(photo)) return photo;
   const match = photo.match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/);
-  if (!match || match[1].length > 1_100_000 || !env.BUCKET) return null;
+  if (!match || match[1].length > 1_100_000) return null;
+  // The Vercel SQLite backend stores resized photos in the database when no
+  // object bucket is configured. The existing Worker continues to use R2.
+  if (!env.BUCKET) return photo;
   const bytes = Uint8Array.from(atob(match[1]), (character) => character.charCodeAt(0));
   const key = `${crypto.randomUUID()}.jpg`;
   await env.BUCKET.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
@@ -80,9 +84,9 @@ async function saveGuest(request, env, id = null, quick = false) {
   const name = String(body.name || '').trim();
   const role = quick ? 'Convidado(a)' : String(body.role || '').trim();
   const company = quick && body.hasCompany === false ? '' : String(body.company || '').trim();
-  if (quick && (typeof body.hasCompany !== 'boolean' || (body.hasCompany && !company))) return json({ error: 'Informe se o convidado possui empresa.' }, 400);
+  if (quick && (typeof body.hasCompany !== 'boolean' || (body.hasCompany && !company))) return json({ error: 'Informe se o convidado faz parte de uma empresa e, em caso positivo, o nome dela.' }, 400);
   if (!/^[a-z0-9][a-z0-9-]{1,100}$/i.test(guestId) || !name || !role || name.length > 120 || role.length > 120 || company.length > 120) {
-    return json({ error: 'Confira o nome, cargo e empresa.' }, 400);
+    return json({ error: quick ? 'Confira o nome e a empresa.' : 'Confira os dados da pessoa.' }, 400);
   }
   let photo;
   try { photo = await imageUrl(quick ? '/guest-avatar.svg' : body.photo, env, request.url); }
@@ -108,7 +112,7 @@ async function saveGuest(request, env, id = null, quick = false) {
   } catch { return json({ error: 'Não foi possível salvar o convidado.' }, 503); }
 }
 
-async function api(request, env, url) {
+export async function api(request, env, url) {
   const photoMatch = url.pathname.match(/^\/api\/photos\/([a-f0-9-]{36}\.jpg)$/);
   if (photoMatch && request.method === 'GET') {
     if (!env.BUCKET) return new Response('Foto indisponível.', { status: 503 });
